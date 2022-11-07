@@ -43,6 +43,23 @@ struct MetaData {
 };
 
 /**
+ * DirectoryEntry structure for a directory entry
+ * Includes information about a file or directory
+ */
+struct DirectoryEntry {
+    /** Name of the file or directory */
+    char item_name[12];
+    /** Flag for if the entry is a file or directory */
+    bool is_directory;
+    /** Size of the file in bytes */
+    uint32_t size;
+    /** Index of the first data cluster */
+    uint32_t start_cluster;
+    /** Index of the parent directory */
+    uint32_t parent_directory;
+};
+
+/**
  * Class representing a pseudo FAT file system
  * The file system is stored in a file on the disk
  */
@@ -57,7 +74,7 @@ private:
 
     void initialize_command_map();
     void help(const std::vector<std::string> &args);
-    void meta_info(const std::vector<std::string> &args);
+    void meta(const std::vector<std::string> &args);
     void cp(const std::vector<std::string> &tokens);
     void mv(const std::vector<std::string> &args);
     void rm(const std::vector<std::string> &args);

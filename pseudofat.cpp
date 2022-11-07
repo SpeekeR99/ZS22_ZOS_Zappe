@@ -15,7 +15,7 @@ PseudoFS::~PseudoFS() {
 
 void PseudoFS::initialize_command_map() {
     commands["help"] = &PseudoFS::help;
-    commands["meta_info"] = &PseudoFS::meta_info;
+    commands["meta"] = &PseudoFS::meta;
     commands["cp"] = &PseudoFS::cp;
     commands["mv"] = &PseudoFS::mv;
     commands["rm"] = &PseudoFS::rm;
@@ -46,6 +46,7 @@ void PseudoFS::help(const std::vector<std::string> &args) {
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
     std::cout << "| help              | display this message                                    |" << std::endl;
     std::cout << "| exit              | exit the program                                        |" << std::endl;
+    std::cout << "| meta              | display meta information about the file system          |" << std::endl;
     std::cout << "| cp <src> <dst>    | copy file from <src> to <dst>                           |" << std::endl;
     std::cout << "| mv <src> <dst>    | move file from <src> to <dst>                           |" << std::endl;
     std::cout << "| rm <file>         | remove file <file>                                      |" << std::endl;
@@ -64,7 +65,7 @@ void PseudoFS::help(const std::vector<std::string> &args) {
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
 }
 
-void PseudoFS::meta_info(const std::vector<std::string> &args) {
+void PseudoFS::meta(const std::vector<std::string> &args) {
     struct MetaData meta{};
     std::ifstream infs = std::ifstream(file_system_filepath, std::ios::binary);
     infs.read(reinterpret_cast<char *>(&meta), sizeof(MetaData));
@@ -133,6 +134,7 @@ void PseudoFS::load(const std::vector<std::string> &args) {
 }
 
 void PseudoFS::format(const std::vector<std::string> &args) {
+    // Get the user input for the disk size
     uint32_t disk_size = std::stoi(args[1]);
     if (args[1].find("KB") != std::string::npos)
         disk_size *= KB;
@@ -141,9 +143,11 @@ void PseudoFS::format(const std::vector<std::string> &args) {
     else if (args[1].find("GB") != std::string::npos)
         disk_size *= GB;
 
+    // Calculate remaining size (size for FAT table and data)
     uint32_t remaining_size = disk_size - sizeof(MetaData);
     uint32_t num_blocks = remaining_size / (DEFAULT_CLUSTER_SIZE + sizeof(uint32_t));
 
+    // Create the meta data for the file system
     meta_data = MetaData{
             "zapped99",
             disk_size,
@@ -153,19 +157,38 @@ void PseudoFS::format(const std::vector<std::string> &args) {
             num_blocks * sizeof(uint32_t),
             sizeof(MetaData) + num_blocks * sizeof(uint32_t)
     };
+    // Create root directory
+    auto root_dir = DirectoryEntry{
+        "root",
+        true,
+        0,
+        meta_data.data_start_address,
+        meta_data.data_start_address
+    };
 
+    // Rewrite the file system file
     if (file_system.is_open()) file_system.close();
     file_system.open(file_system_filepath, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
 
+    // Write the meta data
     file_system.write(reinterpret_cast<const char *>(&meta_data), sizeof(struct MetaData));
-    file_system.write(reinterpret_cast<const char *>(&meta_data.data_start_address), sizeof(uint32_t));
-    for (uint32_t i = 1; i < meta_data.cluster_count; i++)
+
+    // Write the FAT table (all clusters are free)
+    for (uint32_t i = 0; i < meta_data.cluster_count; i++)
         file_system.write(reinterpret_cast<const char *>(&FAT_FREE), sizeof(uint32_t));
+
+    // Write the data (no data)
     const char *nothing = "\0";
     for (uint32_t i = 0; i < meta_data.cluster_count * meta_data.cluster_size; i++)
-        file_system.write(nothing, sizeof(const char *));
+        file_system.write(nothing, sizeof(char));
 
-    std::cout << "OK (Formatted successfully to " << disk_size << " bytes)" << std::endl;
+    // Write the root directory to FAT table and data
+    file_system.seekp(meta_data.fat_start_address);
+    file_system.write(reinterpret_cast<const char *>(&meta_data.data_start_address), sizeof(uint32_t));
+    file_system.seekp(meta_data.data_start_address);
+    file_system.write(reinterpret_cast<const char *>(&root_dir), sizeof(DirectoryEntry));
+
+    std::cout << "OK" << std::endl;
 }
 
 void PseudoFS::defrag(const std::vector<std::string> &args) {
