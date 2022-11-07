@@ -6,22 +6,22 @@
 
 command_map init_cmd_map() {
     command_map commands;
-    commands["help"] = &Commands::help;
-    commands["cp"] = &Commands::cp;
-    commands["mv"] = &Commands::mv;
-    commands["rm"] = &Commands::rm;
-    commands["mkdir"] = &Commands::mkdir;
-    commands["rmdir"] = &Commands::rmdir;
-    commands["ls"] = &Commands::ls;
-    commands["cat"] = &Commands::cat;
-    commands["cd"] = &Commands::cd;
-    commands["pwd"] = &Commands::pwd;
-    commands["info"] = &Commands::info;
-    commands["incp"] = &Commands::incp;
-    commands["outcp"] = &Commands::outcp;
-    commands["load"] = &Commands::load;
-    commands["format"] = &Commands::format;
-    commands["defrag"] = &Commands::defrag;
+    commands["help"] = &help;
+    commands["cp"] = &cp;
+    commands["mv"] = &mv;
+    commands["rm"] = &rm;
+    commands["mkdir"] = &mkdir;
+    commands["rmdir"] = &rmdir;
+    commands["ls"] = &ls;
+    commands["cat"] = &cat;
+    commands["cd"] = &cd;
+    commands["pwd"] = &pwd;
+    commands["info"] = &info;
+    commands["incp"] = &incp;
+    commands["outcp"] = &outcp;
+    commands["load"] = &load;
+    commands["format"] = &format;
+    commands["defrag"] = &defrag;
     return commands;
 }
 
@@ -52,6 +52,16 @@ int main(int argc, char **argv) {
     }
 
     std::cout << "Exiting..." << std::endl;
+
+    struct MetaData meta{};
+    std::ifstream infs = std::ifstream("myfs.dat", std::ios::binary);
+    infs.read(reinterpret_cast<char *>(&meta), sizeof(MetaData));
+    std::cout << meta.signature << std::endl;
+    std::cout << meta.disk_size << std::endl;
+    std::cout << meta.cluster_size << std::endl;
+    std::cout << meta.cluster_count << std::endl;
+    std::cout << meta.fat_start_address << std::endl;
+    std::cout << meta.data_start_address << std::endl;
 
     return 0;
 }

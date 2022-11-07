@@ -1,6 +1,6 @@
 #include "commands.h"
 
-int Commands::help(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void help(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
     std::cout << "| help              | display this message                                    |" << std::endl;
     std::cout << "| exit              | exit the program                                        |" << std::endl;
@@ -20,81 +20,72 @@ int Commands::help(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::s
     std::cout << "| format <size>     | format the file system with size <size>                 |" << std::endl;
     std::cout << "| defrag <file>     | defragment the file <file>                              |" << std::endl;
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
-    return 0;
 }
 
-int Commands::cp(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void cp(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Copy" << std::endl;
-    return 0;
 }
 
-int Commands::mv(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void mv(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Move" << std::endl;
-    return 0;
 }
 
-int Commands::rm(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void rm(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Remove" << std::endl;
-    return 0;
 }
 
-int Commands::mkdir(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void mkdir(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Make directory" << std::endl;
-    return 0;
 }
 
-int Commands::rmdir(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void rmdir(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Remove directory" << std::endl;
-    return 0;
 }
 
-int Commands::ls(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void ls(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "List" << std::endl;
-    return 0;
 }
 
-int Commands::cat(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void cat(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Cat" << std::endl;
-    return 0;
 }
 
-int Commands::cd(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void cd(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Change directory" << std::endl;
-    return 0;
 }
 
-int Commands::pwd(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void pwd(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Print working directory" << std::endl;
-    return 0;
 }
 
-int Commands::info(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void info(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Info" << std::endl;
-    return 0;
 }
 
-int Commands::incp(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void incp(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "In copy" << std::endl;
-    return 0;
 }
 
-int Commands::outcp(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void outcp(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Out copy" << std::endl;
-    return 0;
 }
 
-int Commands::load(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void load(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Load" << std::endl;
-    return 0;
 }
 
-int Commands::format(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
-    fs->format(std::stoi(args[1]));
-    std::cout << "Formatted successfully to " << args[1] << " bytes" << std::endl;
-    return 0;
+void format(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+    uint32_t size = std::stoi(args[1]);
+    if (args[1].find("KB") != std::string::npos)
+        size *= KB;
+    else if (args[1].find("MB") != std::string::npos)
+        size *= MB;
+    else if (args[1].find("GB") != std::string::npos)
+        size *= GB;
+    fs->format(size);
+    std::cout << "OK (Formatted successfully to " << size << " bytes)" << std::endl;
 }
 
-int Commands::defrag(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
+void defrag(const std::unique_ptr<PseudoFS>& fs, const std::vector<std::string> &args) {
     std::cout << "Defrag" << std::endl;
-    return 0;
 }
