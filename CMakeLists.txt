@@ -8,4 +8,6 @@ add_executable(
         main.cpp
         commands.cpp
         commands.h
+        pseudofat.cpp
+        pseudofat.h
 )
