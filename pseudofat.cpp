@@ -1,6 +1,6 @@
 #include "pseudofat.h"
 
-PseudoFS::PseudoFS(const std::string &filepath) : file_system_filepath{filepath}, meta_data{"zapped99", 0, DEFAULT_CLUSTER_SIZE, 0, sizeof(struct MetaData), 0} {
+PseudoFS::PseudoFS(const std::string &filepath) : file_system_filepath{filepath}, meta_data{} {
     file_system.open(filepath, std::ios::binary | std::ios::in | std::ios::out);
     if (!file_system.is_open())
         file_system.open(filepath, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
@@ -15,6 +15,7 @@ PseudoFS::~PseudoFS() {
 
 void PseudoFS::initialize_command_map() {
     commands["help"] = &PseudoFS::help;
+    commands["meta_info"] = &PseudoFS::meta_info;
     commands["cp"] = &PseudoFS::cp;
     commands["mv"] = &PseudoFS::mv;
     commands["rm"] = &PseudoFS::rm;
@@ -41,7 +42,7 @@ void PseudoFS::call_cmd(const std::string &cmd, const std::vector<std::string> &
     }
 }
 
-void PseudoFS::help(const std::vector<std::string> &tokens) {
+void PseudoFS::help(const std::vector<std::string> &args) {
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
     std::cout << "| help              | display this message                                    |" << std::endl;
     std::cout << "| exit              | exit the program                                        |" << std::endl;
@@ -61,6 +62,22 @@ void PseudoFS::help(const std::vector<std::string> &tokens) {
     std::cout << "| format <size>     | format the file system with size <size>                 |" << std::endl;
     std::cout << "| defrag <file>     | defragment the file <file>                              |" << std::endl;
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
+}
+
+void PseudoFS::meta_info(const std::vector<std::string> &args) {
+    struct MetaData meta{};
+    std::ifstream infs = std::ifstream(file_system_filepath, std::ios::binary);
+    infs.read(reinterpret_cast<char *>(&meta), sizeof(MetaData));
+    std::cout << "-------------------------------------------------------------------------------" << std::endl;
+    std::cout << "Signature:          " << meta.signature << std::endl;
+    std::cout << "Disk size:          " << meta.disk_size << std::endl;
+    std::cout << "Cluster size:       " << meta.cluster_size << std::endl;
+    std::cout << "Cluster count:      " << meta.cluster_count << std::endl;
+    std::cout << "Fat start address:  " << meta.fat_start_address << std::endl;
+    std::cout << "Fat size:           " << meta.fat_size << std::endl;
+    std::cout << "Data start address: " << meta.data_start_address << std::endl;
+    std::cout << "-------------------------------------------------------------------------------" << std::endl;
+    infs.close();
 }
 
 void PseudoFS::cp(const std::vector<std::string> &tokens) {
@@ -124,15 +141,29 @@ void PseudoFS::format(const std::vector<std::string> &args) {
     else if (args[1].find("GB") != std::string::npos)
         disk_size *= GB;
 
-    meta_data.disk_size = disk_size;
-    meta_data.cluster_count = disk_size / meta_data.cluster_size;
+    uint32_t remaining_size = disk_size - sizeof(MetaData);
+    uint32_t num_blocks = remaining_size / (DEFAULT_CLUSTER_SIZE + sizeof(uint32_t));
+
+    meta_data = MetaData{
+            "zapped99",
+            disk_size,
+            DEFAULT_CLUSTER_SIZE,
+            (disk_size - (sizeof(MetaData) + num_blocks * sizeof(uint32_t))) / DEFAULT_CLUSTER_SIZE,
+            sizeof(MetaData),
+            num_blocks * sizeof(uint32_t),
+            sizeof(MetaData) + num_blocks * sizeof(uint32_t)
+    };
 
     if (file_system.is_open()) file_system.close();
     file_system.open(file_system_filepath, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
 
     file_system.write(reinterpret_cast<const char *>(&meta_data), sizeof(struct MetaData));
-    for (uint32_t i = meta_data.fat_start_address; i < disk_size; i++)
-        file_system << FAT_FREE;
+    file_system.write(reinterpret_cast<const char *>(&meta_data.data_start_address), sizeof(uint32_t));
+    for (uint32_t i = 1; i < meta_data.cluster_count; i++)
+        file_system.write(reinterpret_cast<const char *>(&FAT_FREE), sizeof(uint32_t));
+    const char *nothing = "\0";
+    for (uint32_t i = 0; i < meta_data.cluster_count * meta_data.cluster_size; i++)
+        file_system.write(nothing, sizeof(const char *));
 
     std::cout << "OK (Formatted successfully to " << disk_size << " bytes)" << std::endl;
 }

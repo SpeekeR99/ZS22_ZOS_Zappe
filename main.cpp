@@ -25,15 +25,5 @@ int main(int argc, char **argv) {
 
     std::cout << "Exiting..." << std::endl;
 
-    struct MetaData meta{};
-    std::ifstream infs = std::ifstream("myfs.dat", std::ios::binary);
-    infs.read(reinterpret_cast<char *>(&meta), sizeof(MetaData));
-    std::cout << meta.signature << std::endl;
-    std::cout << meta.disk_size << std::endl;
-    std::cout << meta.cluster_size << std::endl;
-    std::cout << meta.cluster_count << std::endl;
-    std::cout << meta.fat_start_address << std::endl;
-    std::cout << meta.data_start_address << std::endl;
-
     return 0;
 }

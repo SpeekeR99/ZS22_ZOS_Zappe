@@ -7,11 +7,11 @@
 #include <map>
 
 /** Free cluster constant */
-constexpr int8_t FAT_FREE = -1;
+constexpr int32_t FAT_FREE = -1;
 /** End of file constant */
-constexpr int8_t FAT_EOF = -2;
+constexpr int32_t FAT_EOF = -2;
 /** Bad cluster constant */
-constexpr int8_t FAT_BAD = -3;
+constexpr int32_t FAT_BAD = -3;
 /** 1024 Bytes = 1 KB */
 constexpr int32_t KB = 1024;
 /** 1024 KB = 1 MB */
@@ -36,6 +36,8 @@ struct MetaData {
     uint32_t cluster_count;
     /** Fat table offset in bytes */
     uint32_t fat_start_address;
+    /** Fat table size */
+    uint32_t fat_size;
     /** Root directory offset in bytes */
     uint32_t data_start_address;
 };
@@ -54,7 +56,8 @@ private:
     struct MetaData meta_data;
 
     void initialize_command_map();
-    void help(const std::vector<std::string> &tokens);
+    void help(const std::vector<std::string> &args);
+    void meta_info(const std::vector<std::string> &args);
     void cp(const std::vector<std::string> &tokens);
     void mv(const std::vector<std::string> &args);
     void rm(const std::vector<std::string> &args);
