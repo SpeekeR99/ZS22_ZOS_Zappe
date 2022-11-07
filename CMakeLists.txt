@@ -6,8 +6,6 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(
         myfs
         main.cpp
-        commands.cpp
-        commands.h
         pseudofat.cpp
         pseudofat.h
 )

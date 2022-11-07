@@ -2,6 +2,9 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
+#include <vector>
+#include <map>
 
 /** Free cluster constant */
 constexpr int8_t FAT_FREE = -1;
@@ -43,13 +46,34 @@ struct MetaData {
  */
 class PseudoFS {
 private:
+    typedef void (PseudoFS::*command)(const std::vector<std::string> &);
+    typedef std::map<std::string, command> command_map;
+    command_map commands;
     std::string file_system_filepath;
     std::fstream file_system;
     struct MetaData meta_data;
+
+    void initialize_command_map();
+    void help(const std::vector<std::string> &tokens);
+    void cp(const std::vector<std::string> &tokens);
+    void mv(const std::vector<std::string> &args);
+    void rm(const std::vector<std::string> &args);
+    void mkdir(const std::vector<std::string> &args);
+    void rmdir(const std::vector<std::string> &args);
+    void ls(const std::vector<std::string> &args);
+    void cat(const std::vector<std::string> &args);
+    void cd(const std::vector<std::string> &args);
+    void pwd(const std::vector<std::string> &args);
+    void info(const std::vector<std::string> &args);
+    void incp(const std::vector<std::string> &args);
+    void outcp(const std::vector<std::string> &args);
+    void load(const std::vector<std::string> &args);
+    void format(const std::vector<std::string> &args);
+    void defrag(const std::vector<std::string> &args);
 
 public:
     explicit PseudoFS(const std::string &filepath);
     ~PseudoFS();
 
-    void format(uint32_t disk_size);
+    void call_cmd(const std::string &cmd, const std::vector<std::string> &args);
 };
