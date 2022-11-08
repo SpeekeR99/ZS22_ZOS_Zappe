@@ -1,9 +1,17 @@
 #include "pseudofat.h"
 
-PseudoFS::PseudoFS(const std::string &filepath) : file_system_filepath{filepath}, meta_data{} {
+PseudoFS::PseudoFS(const std::string &filepath) : file_system_filepath{filepath}, meta_data{}, working_directory{} {
     file_system.open(filepath, std::ios::binary | std::ios::in | std::ios::out);
     if (!file_system.is_open())
         file_system.open(filepath, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
+    else {
+        file_system.read(reinterpret_cast<char *>(&meta_data), sizeof(MetaData));
+        working_directory = WorkingDirectory {
+            meta_data.data_start_address,
+            "/",
+            get_directory_entries(meta_data.data_start_address)
+        };
+    }
     if (!file_system.is_open())
         std::cerr << "Error opening file system file" << std::endl;
     initialize_command_map();
@@ -33,6 +41,18 @@ void PseudoFS::initialize_command_map() {
     commands["defrag"] = &PseudoFS::defrag;
 }
 
+std::vector<DirectoryEntry> PseudoFS::get_directory_entries(uint32_t cluster) {
+    std::vector<DirectoryEntry> entries;
+    file_system.seekp(cluster);
+    for (int i = 0; i < DEFAULT_CLUSTER_SIZE / sizeof(DirectoryEntry); i++) {
+        DirectoryEntry entry{};
+        file_system.read(reinterpret_cast<char *>(&entry), sizeof(DirectoryEntry));
+        if (entry.start_cluster != 0)
+            entries.push_back(entry);
+    }
+    return entries;
+}
+
 void PseudoFS::call_cmd(const std::string &cmd, const std::vector<std::string> &args) {
     if (commands.count(cmd))
         (this->*commands[cmd])(args);
@@ -41,6 +61,11 @@ void PseudoFS::call_cmd(const std::string &cmd, const std::vector<std::string> &
         std::cerr << "Type 'help' for a list of commands" << std::endl;
     }
 }
+
+std::string PseudoFS::get_working_directory() const {
+    return working_directory.path;
+}
+
 
 void PseudoFS::help(const std::vector<std::string> &args) {
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
@@ -66,22 +91,18 @@ void PseudoFS::help(const std::vector<std::string> &args) {
 }
 
 void PseudoFS::meta(const std::vector<std::string> &args) {
-    struct MetaData meta{};
-    std::ifstream input_stream = std::ifstream(file_system_filepath, std::ios::binary);
-    input_stream.read(reinterpret_cast<char *>(&meta), sizeof(MetaData));
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
-    std::cout << "Signature:          " << meta.signature << std::endl;
-    std::cout << "Disk size:          " << meta.disk_size << std::endl;
-    std::cout << "Cluster size:       " << meta.cluster_size << std::endl;
-    std::cout << "Cluster count:      " << meta.cluster_count << std::endl;
-    std::cout << "Fat start address:  " << meta.fat_start_address << std::endl;
-    std::cout << "Fat size:           " << meta.fat_size << std::endl;
-    std::cout << "Data start address: " << meta.data_start_address << std::endl;
+    std::cout << "Signature:          " << meta_data.signature << std::endl;
+    std::cout << "Disk size:          " << meta_data.disk_size << std::endl;
+    std::cout << "Cluster size:       " << meta_data.cluster_size << std::endl;
+    std::cout << "Cluster count:      " << meta_data.cluster_count << std::endl;
+    std::cout << "Fat start address:  " << meta_data.fat_start_address << std::endl;
+    std::cout << "Fat size:           " << meta_data.fat_size << std::endl;
+    std::cout << "Data start address: " << meta_data.data_start_address << std::endl;
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
-    input_stream.close();
 }
 
-void PseudoFS::cp(const std::vector<std::string> &tokens) {
+void PseudoFS::cp(const std::vector<std::string> &args) {
 
 }
 
@@ -102,7 +123,20 @@ void PseudoFS::rmdir(const std::vector<std::string> &args) {
 }
 
 void PseudoFS::ls(const std::vector<std::string> &args) {
-
+    if (args.size() == 1) {
+        for (const auto &entry: working_directory.entries) {
+            std::cout << entry.item_name << " ";
+            if (entry.is_directory)
+                std::cout << "<DIR> ";
+            else
+                std::cout << "<FILE> ";
+            std::cout << entry.size << "B ";
+            std::cout << entry.start_cluster << std::endl;
+        }
+    }
+    else {
+        // TODO: ls <dir> -> prevest vse na absolutni cestu, pak cd na tu cestu, pak obycejne ls, pak cd zpet
+    }
 }
 
 void PseudoFS::cat(const std::vector<std::string> &args) {
@@ -114,7 +148,7 @@ void PseudoFS::cd(const std::vector<std::string> &args) {
 }
 
 void PseudoFS::pwd(const std::vector<std::string> &args) {
-
+    std::cout << working_directory.path << std::endl;
 }
 
 void PseudoFS::info(const std::vector<std::string> &args) {
@@ -147,7 +181,7 @@ void PseudoFS::format(const std::vector<std::string> &args) {
     uint32_t remaining_size = disk_size - sizeof(MetaData);
     uint32_t num_blocks = remaining_size / (DEFAULT_CLUSTER_SIZE + sizeof(uint32_t));
 
-    // Create the meta data for the file system
+    // Create the metadata for the file system
     meta_data = MetaData{
             "zapped99",
             disk_size,
@@ -169,6 +203,13 @@ void PseudoFS::format(const std::vector<std::string> &args) {
         true,
         0,
         meta_data.data_start_address,
+    };
+
+    // Set the working directory to root
+    working_directory = WorkingDirectory {
+            meta_data.data_start_address,
+            "/",
+            get_directory_entries(meta_data.data_start_address)
     };
 
     // Rewrite the file system file

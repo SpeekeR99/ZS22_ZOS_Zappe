@@ -9,6 +9,7 @@ int main(int argc, char **argv) {
     std::string token;
     std::vector<std::string> tokens;
     for(;;) {
+        std::cout << fs->get_working_directory() << "$ >" << std::flush;
         std::string input;
         std::getline(std::cin, input);
 
