@@ -185,23 +185,30 @@ bool PseudoFS::mkdir(const std::vector<std::string> &args) {
         break;
     }
 
-    // Update working directory
-    working_directory.entries = get_directory_entries(working_directory.cluster_address);
-
-    // Restore working directory
+    // Restore and update working directory
     working_directory = saved_working_directory;
+    working_directory.entries = get_directory_entries(working_directory.cluster_address);
 
     std::cout << "OK" << std::endl;
     return true;
 }
 
 bool PseudoFS::rmdir(const std::vector<std::string> &args) {
-    // TODO: what if argument is not just a name, but a whole path?
+    // If argument is given, change working directory
+    auto saved_working_directory = working_directory;
+    std::string dir_name = args[1].substr(args[1].find_last_of('/') + 1);
+    std::string dir_path = args[1].substr(0, args[1].find_last_of('/'));
+    std::vector<std::string> cd_args = {"cd", dir_path};
+    bool result_cd = this->cd(cd_args);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd)
+        return false;
 
     // Check if directory with the given name exists
     auto entry = DirectoryEntry{};
     for (const auto &entry_for : working_directory.entries) {
-        if (entry_for.item_name == args[1]) {
+        if (entry_for.item_name == dir_name) {
             entry = entry_for;
             break;
         }
@@ -241,7 +248,8 @@ bool PseudoFS::rmdir(const std::vector<std::string> &args) {
     for (int i = 0; i < DEFAULT_CLUSTER_SIZE; i++)
         file_system.write("\0", sizeof(char));
 
-    // Update working directory
+    // Restore and update working directory
+    working_directory = saved_working_directory;
     working_directory.entries = get_directory_entries(working_directory.cluster_address);
 
     std::cout << "OK" << std::endl;
