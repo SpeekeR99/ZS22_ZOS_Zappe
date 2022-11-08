@@ -451,8 +451,8 @@ bool PseudoFS::incp(const std::vector<std::string> &args) {
 
     // Iterate over clusters and write data to them from source file (and write cluster addresses to FAT)
     uint32_t current_cluster = find_free_cluster();
-    file_system.seekp(meta_data.fat_start_address + current_cluster * sizeof(uint32_t));
-    file_system.write((char *) (&FAT_EOF), sizeof(uint32_t));
+    file_system.seekp(meta_data.fat_start_address + current_cluster * sizeof(uint32_t)); // Mark is as used
+    file_system.write((char *) (&FAT_EOF), sizeof(uint32_t)); // EOF will do just fine, it'll get overwritten later
     uint32_t previous_cluster = 0;
     uint32_t current_cluster_address = meta_data.data_start_address + current_cluster * meta_data.cluster_size;
 
@@ -475,13 +475,32 @@ bool PseudoFS::incp(const std::vector<std::string> &args) {
         previous_cluster = current_cluster;
 
         // Write data to cluster
-        char buffer[meta_data.cluster_size];
-        source_file.read(buffer, static_cast<int>(meta_data.cluster_size));
-        file_system.seekp(current_cluster_address);
-        file_system.write(buffer, static_cast<int>(meta_data.cluster_size));
+        if (i != number_of_iterations - 1) {
+            char buffer[meta_data.cluster_size];
+            source_file.seekg(i * meta_data.cluster_size);
+            source_file.read(buffer, static_cast<int>(meta_data.cluster_size));
+            file_system.seekp(current_cluster_address);
+            file_system.write(buffer, static_cast<int>(meta_data.cluster_size));
+
+            std::cout << "Writing to: " << current_cluster_address << std::endl;
+            std::cout << buffer << std::endl;
+        }
+        // Last iteration
+        else {
+            char buffer[file_size % meta_data.cluster_size];
+            source_file.seekg(i * meta_data.cluster_size);
+            source_file.read(buffer, static_cast<int>(file_size % meta_data.cluster_size));
+            file_system.seekp(current_cluster_address);
+            file_system.write(buffer, static_cast<int>(file_size % meta_data.cluster_size));
+
+            std::cout << "Writing to: " << current_cluster_address << std::endl;
+            std::cout << buffer << std::endl;
+        }
 
         // Find next free cluster
         current_cluster = find_free_cluster();
+        file_system.seekp(meta_data.fat_start_address + current_cluster * sizeof(uint32_t)); // Mark is as used
+        file_system.write((char *) (&FAT_EOF), sizeof(uint32_t)); // EOF will do just fine, it'll get overwritten later
         current_cluster_address = meta_data.data_start_address + current_cluster * meta_data.cluster_size;
     }
 
@@ -544,11 +563,13 @@ bool PseudoFS::outcp(const std::vector<std::string> &args) {
             file_system.read(buffer, static_cast<int>(meta_data.cluster_size));
             destination_file.write(buffer, static_cast<int>(meta_data.cluster_size));
         }
+        // Last iteration
         else {
             char buffer[entry.size % meta_data.cluster_size];
             file_system.seekg(current_cluster_address);
             file_system.read(buffer, static_cast<int>(entry.size % meta_data.cluster_size));
             destination_file.write(buffer, static_cast<int>(entry.size % meta_data.cluster_size));
+            break;
         }
 
         // Find next cluster
