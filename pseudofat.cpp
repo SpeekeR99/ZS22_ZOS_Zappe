@@ -265,45 +265,64 @@ void PseudoFS::cd(const std::vector<std::string> &args) {
         return;
     }
 
-    // TODO: what if argument is not just a name, but a whole path?
+    // Save current working directory
+    auto saved_working_directory = working_directory;
 
-    // If argument is given, go to directory with the given path
-    auto entry = DirectoryEntry{};
-    for (const auto &entry_for : working_directory.entries) {
-        if (entry_for.item_name == args[1]) {
-            entry = entry_for;
-            break;
-        }
+    // If argument is given, tokenize the path and go to the directory
+    std::stringstream ss(args[1]);
+    std::string token;
+    std::vector<std::string> path_tokenized;
+    while (std::getline(ss, token, '/'))
+        path_tokenized.push_back(token);
+
+    // If path starts with '/', go to root directory first
+    if (path_tokenized[0].empty()) {
+        working_directory = WorkingDirectory{
+            meta_data.data_start_address,
+            "/",
+            get_directory_entries(meta_data.data_start_address)
+        };
+        path_tokenized.erase(path_tokenized.begin());
     }
 
-    // Check if directory with the given name exists
-    if (entry.start_cluster == 0) {
-        std::cerr << "ERROR: PATH NOT FOUND" << std::endl;
-        return;
-    }
-
-    // Go to the directory = update working directory
-    if (entry.item_name[0] == '.') {
-        // If argument is .. go to parent directory
-        if (entry.item_name[1] == '.') {
-            working_directory.path = working_directory.path.substr(0, working_directory.path.find_last_of('/'));
-            working_directory.path = working_directory.path.substr(0, working_directory.path.find_last_of('/'));
-            working_directory.path += "/";
+    for (const auto &path : path_tokenized) {
+        // Find directory entry with the given name
+        auto entry = DirectoryEntry{};
+        for (const auto &entry_for: working_directory.entries) {
+            if (entry_for.item_name == path) {
+                entry = entry_for;
+                break;
+            }
         }
-        // If argument is . do nothing
-        else {
-            std::cout << "OK" << std::endl;
+
+        // Check if directory with the given name exists
+        if (entry.start_cluster == 0) {
+            std::cerr << "ERROR: PATH NOT FOUND" << std::endl;
+            working_directory = saved_working_directory;
             return;
         }
+
+        // Go to the directory = update working directory
+        if (entry.item_name[0] == '.') {
+            // If argument is .. go to parent directory
+            if (entry.item_name[1] == '.') {
+                working_directory.path = working_directory.path.substr(0, working_directory.path.find_last_of('/'));
+                working_directory.path = working_directory.path.substr(0, working_directory.path.find_last_of('/'));
+                working_directory.path += "/";
+            }
+                // If argument is . do nothing
+            else
+                continue;
+        }
+            // If argument is a directory name, go to the directory
+        else {
+            working_directory.path += entry.item_name;
+            working_directory.path += "/";
+        }
+        // Update working directory
+        working_directory.cluster_address = entry.start_cluster;
+        working_directory.entries = get_directory_entries(entry.start_cluster);
     }
-    // If argument is a directory name, go to the directory
-    else {
-        working_directory.path += entry.item_name;
-        working_directory.path += "/";
-    }
-    // Update working directory
-    working_directory.cluster_address = entry.start_cluster;
-    working_directory.entries = get_directory_entries(entry.start_cluster);
 
     std::cout << "OK" << std::endl;
 }
