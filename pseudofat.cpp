@@ -8,13 +8,13 @@ PseudoFS::PseudoFS(const std::string &filepath) : file_system_filepath{filepath}
     if (!file_system.is_open())
         file_system.open(filepath, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
 
-    // If the file existed, read the metadata
+        // If the file existed, read the metadata
     else {
         file_system.read(reinterpret_cast<char *>(&meta_data), sizeof(MetaData));
-        working_directory = WorkingDirectory {
-            meta_data.data_start_address,
-            "/",
-            get_directory_entries(meta_data.data_start_address)
+        working_directory = WorkingDirectory{
+                meta_data.data_start_address,
+                "/",
+                get_directory_entries(meta_data.data_start_address)
         };
     }
 
@@ -154,7 +154,7 @@ bool PseudoFS::mkdir(const std::vector<std::string> &args) {
     }
 
     // Check if directory (or file) with the same name already exists
-    for (const auto &entry : working_directory.entries) {
+    for (const auto &entry: working_directory.entries) {
         if (entry.item_name == dir_name) {
             std::cerr << "ERROR: EXISTS" << std::endl;
             working_directory = saved_working_directory;
@@ -228,7 +228,7 @@ bool PseudoFS::rmdir(const std::vector<std::string> &args) {
 
     // Check if directory with the given name exists
     auto entry = DirectoryEntry{};
-    for (const auto &entry_for : working_directory.entries) {
+    for (const auto &entry_for: working_directory.entries) {
         if (entry_for.item_name == dir_name) {
             entry = entry_for;
             break;
@@ -315,9 +315,9 @@ bool PseudoFS::cd(const std::vector<std::string> &args) {
     // If no argument is given, go to root directory
     if (args.size() == 1) {
         working_directory = WorkingDirectory{
-            meta_data.data_start_address,
-            "/",
-            get_directory_entries(meta_data.data_start_address)
+                meta_data.data_start_address,
+                "/",
+                get_directory_entries(meta_data.data_start_address)
         };
         std::cout << "OK" << std::endl;
         return true;
@@ -336,14 +336,14 @@ bool PseudoFS::cd(const std::vector<std::string> &args) {
     // If path starts with '/', go to root directory first
     if (path_tokenized[0].empty()) {
         working_directory = WorkingDirectory{
-            meta_data.data_start_address,
-            "/",
-            get_directory_entries(meta_data.data_start_address)
+                meta_data.data_start_address,
+                "/",
+                get_directory_entries(meta_data.data_start_address)
         };
         path_tokenized.erase(path_tokenized.begin());
     }
 
-    for (const auto &path : path_tokenized) {
+    for (const auto &path: path_tokenized) {
         // Find directory entry with the given name
         auto entry = DirectoryEntry{};
         for (const auto &entry_for: working_directory.entries) {
@@ -433,16 +433,16 @@ bool PseudoFS::format(const std::vector<std::string> &args) {
     };
     // Create root directory
     auto root_dir = DirectoryEntry{
-        ".",
-        true,
-        0,
-        meta_data.data_start_address,
+            ".",
+            true,
+            0,
+            meta_data.data_start_address,
     };
     auto root_dir_parent = DirectoryEntry{
-        "..",
-        true,
-        0,
-        meta_data.data_start_address,
+            "..",
+            true,
+            0,
+            meta_data.data_start_address,
     };
 
     // Rewrite the file system file
@@ -468,7 +468,7 @@ bool PseudoFS::format(const std::vector<std::string> &args) {
     file_system.write(reinterpret_cast<const char *>(&root_dir_parent), sizeof(DirectoryEntry));
 
     // Set the working directory to root
-    working_directory = WorkingDirectory {
+    working_directory = WorkingDirectory{
             meta_data.data_start_address,
             "/",
             get_directory_entries(meta_data.data_start_address)
