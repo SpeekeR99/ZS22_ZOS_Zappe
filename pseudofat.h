@@ -110,9 +110,16 @@ private:
 
     /**
      * Gets the first free cluster_address address in the FAT table
-     * @return Index of the first free cluster_address
+     * @return Index of the first free cluster_address (or 0 if there are no free clusters)
      */
     uint32_t find_free_cluster();
+
+    /**
+     * Writes the DirectoryEntry to the given cluster_address (directory)
+     * @param cluster_address Cluster index of the directory
+     * @param entry Entry to be written
+     */
+    void write_directory_entry(uint32_t cluster_address, const DirectoryEntry &entry);
 
     /**
      * Help function to list all commands
@@ -129,6 +136,14 @@ private:
      * @return Always returns true (only for genericity)
      */
     bool meta(const std::vector<std::string> &args);
+
+    /**
+     * Fat function prints the FAT table of the file system
+     * Callable by using the 'fat' command
+     * @param args This function takes no arguments (only for genericity)
+     * @return Always returns true (only for genericity)
+     */
+    bool fat(const std::vector<std::string> &args);
 
     /**
      * Copy function copies a file from the <src> to the <dst>
