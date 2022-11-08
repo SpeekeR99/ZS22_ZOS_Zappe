@@ -67,8 +67,8 @@ void PseudoFS::help(const std::vector<std::string> &args) {
 
 void PseudoFS::meta(const std::vector<std::string> &args) {
     struct MetaData meta{};
-    std::ifstream infs = std::ifstream(file_system_filepath, std::ios::binary);
-    infs.read(reinterpret_cast<char *>(&meta), sizeof(MetaData));
+    std::ifstream input_stream = std::ifstream(file_system_filepath, std::ios::binary);
+    input_stream.read(reinterpret_cast<char *>(&meta), sizeof(MetaData));
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
     std::cout << "Signature:          " << meta.signature << std::endl;
     std::cout << "Disk size:          " << meta.disk_size << std::endl;
@@ -78,7 +78,7 @@ void PseudoFS::meta(const std::vector<std::string> &args) {
     std::cout << "Fat size:           " << meta.fat_size << std::endl;
     std::cout << "Data start address: " << meta.data_start_address << std::endl;
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
-    infs.close();
+    input_stream.close();
 }
 
 void PseudoFS::cp(const std::vector<std::string> &tokens) {
@@ -159,11 +159,16 @@ void PseudoFS::format(const std::vector<std::string> &args) {
     };
     // Create root directory
     auto root_dir = DirectoryEntry{
-        "root",
+        ".",
         true,
         0,
         meta_data.data_start_address,
-        meta_data.data_start_address
+    };
+    auto root_dir_parent = DirectoryEntry{
+        "..",
+        true,
+        0,
+        meta_data.data_start_address,
     };
 
     // Rewrite the file system file
@@ -187,6 +192,7 @@ void PseudoFS::format(const std::vector<std::string> &args) {
     file_system.write(reinterpret_cast<const char *>(&meta_data.data_start_address), sizeof(uint32_t));
     file_system.seekp(meta_data.data_start_address);
     file_system.write(reinterpret_cast<const char *>(&root_dir), sizeof(DirectoryEntry));
+    file_system.write(reinterpret_cast<const char *>(&root_dir_parent), sizeof(DirectoryEntry));
 
     std::cout << "OK" << std::endl;
 }
