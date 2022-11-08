@@ -1,9 +1,14 @@
 #include "pseudofat.h"
 
 PseudoFS::PseudoFS(const std::string &filepath) : file_system_filepath{filepath}, meta_data{}, working_directory{} {
+    // Open the file system file
     file_system.open(filepath, std::ios::binary | std::ios::in | std::ios::out);
+
+    // If the file doesn't exist, create it
     if (!file_system.is_open())
         file_system.open(filepath, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
+
+    // If the file existed, read the metadata
     else {
         file_system.read(reinterpret_cast<char *>(&meta_data), sizeof(MetaData));
         working_directory = WorkingDirectory {
@@ -12,8 +17,12 @@ PseudoFS::PseudoFS(const std::string &filepath) : file_system_filepath{filepath}
             get_directory_entries(meta_data.data_start_address)
         };
     }
+
+    // If the file still isn't open, print an error
     if (!file_system.is_open())
         std::cerr << "Error opening file system file" << std::endl;
+
+    // Initialize the command map for the shell
     initialize_command_map();
 }
 
@@ -130,10 +139,13 @@ bool PseudoFS::rm(const std::vector<std::string> &args) {
 bool PseudoFS::mkdir(const std::vector<std::string> &args) {
     // If argument is given, change working directory
     auto saved_working_directory = working_directory;
-    std::string dir_name = args[1].substr(args[1].find_last_of('/') + 1);
-    std::string dir_path = args[1].substr(0, args[1].find_last_of('/'));
+    std::string dir_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
+    std::string dir_path = args[1].substr(0, args[1].find_last_of('/') + 1);
     std::vector<std::string> cd_args = {"cd", dir_path};
-    bool result_cd = this->cd(cd_args);
+    bool result_cd = true;
+    // If directory path is not empty, change working directory
+    if (args[1].find('/') != std::string::npos)
+        result_cd = this->cd(cd_args);
 
     // Error could have occurred while changing working directory
     if (!result_cd)
@@ -196,10 +208,13 @@ bool PseudoFS::mkdir(const std::vector<std::string> &args) {
 bool PseudoFS::rmdir(const std::vector<std::string> &args) {
     // If argument is given, change working directory
     auto saved_working_directory = working_directory;
-    std::string dir_name = args[1].substr(args[1].find_last_of('/') + 1);
-    std::string dir_path = args[1].substr(0, args[1].find_last_of('/'));
+    std::string dir_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
+    std::string dir_path = args[1].substr(0, args[1].find_last_of('/') + 1);
     std::vector<std::string> cd_args = {"cd", dir_path};
-    bool result_cd = this->cd(cd_args);
+    bool result_cd = true;
+    // If directory path is not empty, change working directory
+    if (args[1].find('/') != std::string::npos)
+        result_cd = this->cd(cd_args);
 
     // Error could have occurred while changing working directory
     if (!result_cd)

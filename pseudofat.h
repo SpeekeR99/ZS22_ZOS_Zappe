@@ -118,6 +118,7 @@ private:
      * Help function to list all commands
      * Callable by using the 'help' command
      * @param args This function takes no arguments (only for genericity)
+     * @return Always returns true (only for genericity)
      */
     bool help(const std::vector<std::string> &args);
 
@@ -125,6 +126,7 @@ private:
      * Meta function prints the meta data of the file system
      * Callable by using the 'meta' command
      * @param args This function takes no arguments (only for genericity)
+     * @return Always returns true (only for genericity)
      */
     bool meta(const std::vector<std::string> &args);
 
@@ -132,6 +134,7 @@ private:
      * Copy function copies a file from the <src> to the <dst>
      * Callable by using the 'copy' command with the <src> and <dst> arguments
      * @param args <src> and <dst> filepaths to copy from and to are expected
+     * @return True if the copy was successful, false otherwise
      */
     bool cp(const std::vector<std::string> &args);
 
@@ -139,6 +142,7 @@ private:
      * Move function moves a file from the <src> to the <dst>
      * Callable by using the 'move' command with the <src> and <dst> arguments
      * @param args <src> and <dst> filepaths to move from and to are expected
+     * @return True if the move was successful, false otherwise
      */
     bool mv(const std::vector<std::string> &args);
 
@@ -146,6 +150,7 @@ private:
      * Remove function removes a file from the file system
      * Callable by using the 'remove' command with the <filepath> argument
      * @param args <filepath> to be removed is expected
+     * @return True if the remove was successful, false otherwise
      */
     bool rm(const std::vector<std::string> &args);
 
@@ -153,6 +158,7 @@ private:
      * Make directory function creates a directory in the file system
      * Callable by using the 'mkdir' command with the <dirpath> argument
      * @param args <dirpath> to be created is expected
+     * @return True if the directory was created, false otherwise
      */
     bool mkdir(const std::vector<std::string> &args);
 
@@ -160,6 +166,7 @@ private:
      * Remove directory function removes a directory from the file system
      * Callable by using the 'rmdir' command with the <dirpath> argument
      * @param args <dirpath> to be removed is expected
+     * @return True if the directory was removed, false otherwise
      */
     bool rmdir(const std::vector<std::string> &args);
 
@@ -167,6 +174,7 @@ private:
      * List function lists the contents of a directory
      * Callable by using the 'ls' command with the <dirpath> argument (or no argument for current <dir>)
      * @param args <dirpath> to be listed is expected (or no argument for current <dir>)
+     * @return True if the directory was listed, false otherwise
      */
     bool ls(const std::vector<std::string> &args);
 
@@ -174,6 +182,7 @@ private:
      * Cat function prints the contents of a file
      * Callable by using the 'cat' command with the <filepath> argument
      * @param args <filepath> to be printed is expected
+     * @return True if the file was printed, false otherwise
      */
     bool cat(const std::vector<std::string> &args);
 
@@ -181,6 +190,7 @@ private:
      * Change directory function changes the current directory
      * Callable by using the 'cd' command with the <dirpath> argument
      * @param args <dirpath> to be changed to is expected
+     * @return True if the directory was changed, false otherwise
      */
     bool cd(const std::vector<std::string> &args);
 
@@ -188,6 +198,7 @@ private:
      * Print working directory function prints the current directory
      * Callable by using the 'pwd' command
      * @param args This function takes no arguments (only for genericity)
+     * @return Always returns true (only for genericity)
      */
     bool pwd(const std::vector<std::string> &args);
 
@@ -195,6 +206,7 @@ private:
      * Info function prints information about a file or directory
      * Callable by using the 'info' command with the <filepath> argument
      * @param args <filepath> to be informed about is expected
+     * @return True if the information was printed, false otherwise
      */
     bool info(const std::vector<std::string> &args);
 
@@ -203,6 +215,7 @@ private:
      * Callable by using the 'incp' command with the <src> and <dst> arguments
      * @param args <src> and <dst> filepaths to copy from and to are expected
      *            (<src> is on the disk, <dst> is on the file system)
+     * @return True if the copy was successful, false otherwise
      */
     bool incp(const std::vector<std::string> &args);
 
@@ -211,6 +224,7 @@ private:
      * Callable by using the 'outcp' command with the <src> and <dst> arguments
      * @param args <src> and <dst> filepaths to copy from and to are expected
      *            (<src> is on the file system, <dst> is on the disk)
+     * @return True if the copy was successful, false otherwise
      */
     bool outcp(const std::vector<std::string> &args);
 
@@ -219,6 +233,7 @@ private:
      * Callable by using the 'load' command with the <filepath> argument
      * @param args <filepath> to be loaded is expected
      *            (<filepath> is on the disk)
+     * @return True if the load was successful, false otherwise
      */
     bool load(const std::vector<std::string> &args);
 
@@ -227,6 +242,7 @@ private:
      * Callable by using the 'format' command with the <size> argument
      * @param args <size> of the file system is expected (KB, MB and GB are supported)
      *            (examples: 1024, 10KB, 200MB, 2GB...)
+     * @return True if the format was successful, false otherwise
      */
     bool format(const std::vector<std::string> &args);
 
@@ -234,6 +250,7 @@ private:
      * Defragmentation function defragments the given file <filepath>
      * Callable by using the 'defrag' command with the <filepath> argument
      * @param args <filepath> to be defragmented is expected
+     * @return True if the defragmentation was successful, false otherwise
      */
     bool defrag(const std::vector<std::string> &args);
 
