@@ -180,7 +180,55 @@ void PseudoFS::mkdir(const std::vector<std::string> &args) {
 }
 
 void PseudoFS::rmdir(const std::vector<std::string> &args) {
+    // TODO: what if argument is not just a name, but a whole path?
 
+    // Check if directory with the given name exists
+    auto entry = DirectoryEntry{};
+    for (const auto &entry_for : working_directory.entries) {
+        if (entry_for.item_name == args[1]) {
+            entry = entry_for;
+            break;
+        }
+    }
+    if (entry.start_cluster == 0) {
+        std::cerr << "ERROR: DIR NOT FOUND" << std::endl;
+        return;
+    }
+
+    // Check if directory is empty
+    auto entries = get_directory_entries(entry.start_cluster);
+    if (entries.size() > 2) {
+        std::cerr << "ERROR: DIR NOT EMPTY" << std::endl;
+        return;
+    }
+
+    // Mark cluster as free in FAT table
+    auto cluster_index = (entry.start_cluster - meta_data.data_start_address) / meta_data.cluster_size;
+    file_system.seekp(meta_data.fat_start_address + cluster_index * sizeof(uint32_t));
+    file_system.write(reinterpret_cast<const char *>(&FAT_FREE), sizeof(uint32_t));
+
+    // Remove directory entry from parent directory
+    for (int i = 0; i < DEFAULT_CLUSTER_SIZE / sizeof(DirectoryEntry); i++) {
+        auto tmp = DirectoryEntry{};
+        file_system.seekp(working_directory.cluster_address + i * sizeof(DirectoryEntry));
+        file_system.read(reinterpret_cast<char *>(&tmp), sizeof(DirectoryEntry));
+        if (tmp.start_cluster == entry.start_cluster) {
+            file_system.seekp(working_directory.cluster_address + i * sizeof(DirectoryEntry));
+            DirectoryEntry empty_entry{};
+            file_system.write(reinterpret_cast<const char *>(&empty_entry), sizeof(DirectoryEntry));
+            break;
+        }
+    }
+
+    // Mark cluster as free by putting zeroes in it
+    file_system.seekp(entry.start_cluster);
+    for (int i = 0; i < DEFAULT_CLUSTER_SIZE; i++)
+        file_system.write("\0", sizeof(char));
+
+    // Update working directory
+    working_directory.entries = get_directory_entries(working_directory.cluster_address);
+
+    std::cout << "OK" << std::endl;
 }
 
 void PseudoFS::ls(const std::vector<std::string> &args) {
@@ -280,9 +328,8 @@ void PseudoFS::format(const std::vector<std::string> &args) {
         file_system.write(reinterpret_cast<const char *>(&FAT_FREE), sizeof(uint32_t));
 
     // Write the data (no data)
-    const char *nothing = "\0";
     for (uint32_t i = 0; i < meta_data.cluster_count * meta_data.cluster_size; i++)
-        file_system.write(nothing, sizeof(char));
+        file_system.write("\0", sizeof(char));
 
     // Write the root directory to FAT table and data
     file_system.seekp(meta_data.fat_start_address);
