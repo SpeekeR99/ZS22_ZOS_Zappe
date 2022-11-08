@@ -6,11 +6,11 @@
 #include <vector>
 #include <map>
 
-/** Free cluster constant */
+/** Free cluster_address constant */
 constexpr int32_t FAT_FREE = -1;
 /** End of file constant */
 constexpr int32_t FAT_EOF = -2;
-/** Bad cluster constant */
+/** Bad cluster_address constant */
 constexpr int32_t FAT_BAD = -3;
 /** 1024 Bytes = 1 KB */
 constexpr int32_t KB = 1024;
@@ -20,6 +20,8 @@ constexpr int32_t MB = 1024 * KB;
 constexpr int32_t GB = 1024 * MB;
 /** Cluster size in bytes */
 constexpr uint32_t DEFAULT_CLUSTER_SIZE = 1 * KB;
+/** Default length of file name */
+constexpr uint32_t DEFAULT_FILE_NAME_LENGTH = 12;
 
 /**
  * MetaData structure for the whole file system
@@ -30,7 +32,7 @@ struct MetaData {
     char signature[9];
     /** Size of the file system in bytes */
     uint32_t disk_size;
-    /** Size of a cluster in bytes */
+    /** Size of a cluster_address in bytes */
     uint32_t cluster_size;
     /** Number of clusters in the file system */
     uint32_t cluster_count;
@@ -48,12 +50,12 @@ struct MetaData {
  */
 struct DirectoryEntry {
     /** Name of the file or directory */
-    char item_name[12];
+    char item_name[DEFAULT_FILE_NAME_LENGTH];
     /** Flag for if the entry is a file or directory */
     bool is_directory;
     /** Size of the file in bytes */
     uint32_t size;
-    /** Index of the first data cluster */
+    /** Index of the first data cluster_address */
     uint32_t start_cluster;
 };
 
@@ -62,8 +64,8 @@ struct DirectoryEntry {
  * Includes information about the current working directory
  */
 struct WorkingDirectory {
-    /** Cluster index of the working directory */
-    uint32_t cluster;
+    /** Cluster address of the working directory */
+    uint32_t cluster_address;
     /** Path of the working directory */
     std::string path;
     /** Directory entries of the working directory */
@@ -99,11 +101,17 @@ private:
     void initialize_command_map();
 
     /**
-     * Gets the directory entries of a directory given by it's cluster index
+     * Gets the directory entries of a directory given by it's cluster_address index
      * @param cluster Cluster index of the directory
      * @return Vector of directory entries
      */
     std::vector<DirectoryEntry> get_directory_entries(uint32_t cluster);
+
+    /**
+     * Gets the first free cluster_address address in the FAT table
+     * @return Index of the first free cluster_address
+     */
+    uint32_t find_free_cluster();
 
     /**
      * Help function to list all commands

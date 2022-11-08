@@ -53,6 +53,17 @@ std::vector<DirectoryEntry> PseudoFS::get_directory_entries(uint32_t cluster) {
     return entries;
 }
 
+uint32_t PseudoFS::find_free_cluster() {
+    for (int i = 0; i < meta_data.cluster_count; i++) {
+        uint32_t cluster{};
+        file_system.seekp(meta_data.fat_start_address + i * sizeof(uint32_t));
+        file_system.read(reinterpret_cast<char *>(&cluster), sizeof(uint32_t));
+        if (cluster == FAT_FREE)
+            return i;
+    }
+    return 0;
+}
+
 void PseudoFS::call_cmd(const std::string &cmd, const std::vector<std::string> &args) {
     if (commands.count(cmd))
         (this->*commands[cmd])(args);
@@ -115,7 +126,57 @@ void PseudoFS::rm(const std::vector<std::string> &args) {
 }
 
 void PseudoFS::mkdir(const std::vector<std::string> &args) {
+    // TODO: what if argument is not just a name, but a whole path?
 
+    // Check if directory (or file) with the same name already exists
+    for (const auto &entry : working_directory.entries) {
+        if (entry.item_name == args[1]) {
+            std::cerr << "ERROR: EXISTS" << std::endl;
+            return;
+        }
+    }
+
+    // Find free cluster
+    auto cluster_index = find_free_cluster();
+    if (!cluster_index) {
+        std::cerr << "ERROR: NO SPACE" << std::endl;
+        return;
+    }
+    // Calculate address of the cluster
+    auto cluster_address = meta_data.data_start_address + cluster_index * meta_data.cluster_size;
+
+    // Mark cluster as used in FAT table
+    file_system.seekp(meta_data.fat_start_address + cluster_index * sizeof(uint32_t));
+    file_system.write(reinterpret_cast<const char *>(&FAT_EOF), sizeof(uint32_t));
+
+    // Create new directory entry
+    DirectoryEntry entry{"", true, 0, cluster_address};
+    for (int i = 0; i < DEFAULT_FILE_NAME_LENGTH; i++)
+        entry.item_name[i] = args[1][i];
+    DirectoryEntry this_entry{".", true, 0, cluster_address};
+    DirectoryEntry parent_entry{"..", true, 0, working_directory.cluster_address};
+
+    // Write current and parent directory entries to the cluster
+    file_system.seekp(cluster_address);
+    file_system.write(reinterpret_cast<const char *>(&this_entry), sizeof(DirectoryEntry));
+    file_system.write(reinterpret_cast<const char *>(&parent_entry), sizeof(DirectoryEntry));
+
+    // Add new directory entry to parent directory
+    file_system.seekp(working_directory.cluster_address);
+    for (int i = 0; i < DEFAULT_CLUSTER_SIZE / sizeof(DirectoryEntry); i++) {
+        auto tmp = DirectoryEntry{};
+        file_system.read(reinterpret_cast<char *>(&tmp), sizeof(DirectoryEntry));
+        if (tmp.start_cluster != 0)
+            continue;
+        file_system.seekp(working_directory.cluster_address + i * sizeof(DirectoryEntry));
+        file_system.write(reinterpret_cast<const char *>(&entry), sizeof(DirectoryEntry));
+        break;
+    }
+
+    // Update working directory
+    working_directory.entries = get_directory_entries(working_directory.cluster_address);
+
+    std::cout << "OK" << std::endl;
 }
 
 void PseudoFS::rmdir(const std::vector<std::string> &args) {
@@ -123,6 +184,7 @@ void PseudoFS::rmdir(const std::vector<std::string> &args) {
 }
 
 void PseudoFS::ls(const std::vector<std::string> &args) {
+    // If no argument is given, list working directory
     if (args.size() == 1) {
         for (const auto &entry: working_directory.entries) {
             std::cout << entry.item_name << " ";
@@ -134,6 +196,7 @@ void PseudoFS::ls(const std::vector<std::string> &args) {
             std::cout << entry.start_cluster << std::endl;
         }
     }
+    // If argument is given, list directory with the given path
     else {
         // TODO: ls <dir> -> prevest vse na absolutni cestu, pak cd na tu cestu, pak obycejne ls, pak cd zpet
     }
@@ -205,13 +268,6 @@ void PseudoFS::format(const std::vector<std::string> &args) {
         meta_data.data_start_address,
     };
 
-    // Set the working directory to root
-    working_directory = WorkingDirectory {
-            meta_data.data_start_address,
-            "/",
-            get_directory_entries(meta_data.data_start_address)
-    };
-
     // Rewrite the file system file
     if (file_system.is_open()) file_system.close();
     file_system.open(file_system_filepath, std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
@@ -230,10 +286,17 @@ void PseudoFS::format(const std::vector<std::string> &args) {
 
     // Write the root directory to FAT table and data
     file_system.seekp(meta_data.fat_start_address);
-    file_system.write(reinterpret_cast<const char *>(&meta_data.data_start_address), sizeof(uint32_t));
+    file_system.write(reinterpret_cast<const char *>(&FAT_EOF), sizeof(uint32_t));
     file_system.seekp(meta_data.data_start_address);
     file_system.write(reinterpret_cast<const char *>(&root_dir), sizeof(DirectoryEntry));
     file_system.write(reinterpret_cast<const char *>(&root_dir_parent), sizeof(DirectoryEntry));
+
+    // Set the working directory to root
+    working_directory = WorkingDirectory {
+            meta_data.data_start_address,
+            "/",
+            get_directory_entries(meta_data.data_start_address)
+    };
 
     std::cout << "OK" << std::endl;
 }
