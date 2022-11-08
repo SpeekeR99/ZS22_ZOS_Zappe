@@ -148,13 +148,16 @@ bool PseudoFS::mkdir(const std::vector<std::string> &args) {
         result_cd = this->cd(cd_args);
 
     // Error could have occurred while changing working directory
-    if (!result_cd)
+    if (!result_cd) {
+        working_directory = saved_working_directory;
         return false;
+    }
 
     // Check if directory (or file) with the same name already exists
     for (const auto &entry : working_directory.entries) {
         if (entry.item_name == dir_name) {
             std::cerr << "ERROR: EXISTS" << std::endl;
+            working_directory = saved_working_directory;
             return false;
         }
     }
@@ -163,6 +166,7 @@ bool PseudoFS::mkdir(const std::vector<std::string> &args) {
     auto cluster_index = find_free_cluster();
     if (!cluster_index) {
         std::cerr << "ERROR: NO SPACE" << std::endl;
+        working_directory = saved_working_directory;
         return false;
     }
     // Calculate address of the cluster
@@ -217,8 +221,10 @@ bool PseudoFS::rmdir(const std::vector<std::string> &args) {
         result_cd = this->cd(cd_args);
 
     // Error could have occurred while changing working directory
-    if (!result_cd)
+    if (!result_cd) {
+        working_directory = saved_working_directory;
         return false;
+    }
 
     // Check if directory with the given name exists
     auto entry = DirectoryEntry{};
@@ -230,6 +236,7 @@ bool PseudoFS::rmdir(const std::vector<std::string> &args) {
     }
     if (entry.start_cluster == 0) {
         std::cerr << "ERROR: DIR NOT FOUND" << std::endl;
+        working_directory = saved_working_directory;
         return false;
     }
 
@@ -237,6 +244,7 @@ bool PseudoFS::rmdir(const std::vector<std::string> &args) {
     auto entries = get_directory_entries(entry.start_cluster);
     if (entries.size() > 2) {
         std::cerr << "ERROR: DIR NOT EMPTY" << std::endl;
+        working_directory = saved_working_directory;
         return false;
     }
 
