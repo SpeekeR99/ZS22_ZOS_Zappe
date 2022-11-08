@@ -80,7 +80,7 @@ struct WorkingDirectory {
 class PseudoFS {
 private:
     /** Typedef for a map of command functions */
-    typedef void (PseudoFS::*command)(const std::vector<std::string> &);
+    typedef bool (PseudoFS::*command)(const std::vector<std::string> &);
     /** Typedef for a map of command functions */
     typedef std::map<std::string, command> command_map;
     /** Map of command functions */
@@ -119,84 +119,84 @@ private:
      * Callable by using the 'help' command
      * @param args This function takes no arguments (only for genericity)
      */
-    void help(const std::vector<std::string> &args);
+    bool help(const std::vector<std::string> &args);
 
     /**
      * Meta function prints the meta data of the file system
      * Callable by using the 'meta' command
      * @param args This function takes no arguments (only for genericity)
      */
-    void meta(const std::vector<std::string> &args);
+    bool meta(const std::vector<std::string> &args);
 
     /**
      * Copy function copies a file from the <src> to the <dst>
      * Callable by using the 'copy' command with the <src> and <dst> arguments
      * @param args <src> and <dst> filepaths to copy from and to are expected
      */
-    void cp(const std::vector<std::string> &args);
+    bool cp(const std::vector<std::string> &args);
 
     /**
      * Move function moves a file from the <src> to the <dst>
      * Callable by using the 'move' command with the <src> and <dst> arguments
      * @param args <src> and <dst> filepaths to move from and to are expected
      */
-    void mv(const std::vector<std::string> &args);
+    bool mv(const std::vector<std::string> &args);
 
     /**
      * Remove function removes a file from the file system
      * Callable by using the 'remove' command with the <filepath> argument
      * @param args <filepath> to be removed is expected
      */
-    void rm(const std::vector<std::string> &args);
+    bool rm(const std::vector<std::string> &args);
 
     /**
      * Make directory function creates a directory in the file system
      * Callable by using the 'mkdir' command with the <dirpath> argument
      * @param args <dirpath> to be created is expected
      */
-    void mkdir(const std::vector<std::string> &args);
+    bool mkdir(const std::vector<std::string> &args);
 
     /**
      * Remove directory function removes a directory from the file system
      * Callable by using the 'rmdir' command with the <dirpath> argument
      * @param args <dirpath> to be removed is expected
      */
-    void rmdir(const std::vector<std::string> &args);
+    bool rmdir(const std::vector<std::string> &args);
 
     /**
      * List function lists the contents of a directory
      * Callable by using the 'ls' command with the <dirpath> argument (or no argument for current <dir>)
      * @param args <dirpath> to be listed is expected (or no argument for current <dir>)
      */
-    void ls(const std::vector<std::string> &args);
+    bool ls(const std::vector<std::string> &args);
 
     /**
      * Cat function prints the contents of a file
      * Callable by using the 'cat' command with the <filepath> argument
      * @param args <filepath> to be printed is expected
      */
-    void cat(const std::vector<std::string> &args);
+    bool cat(const std::vector<std::string> &args);
 
     /**
      * Change directory function changes the current directory
      * Callable by using the 'cd' command with the <dirpath> argument
      * @param args <dirpath> to be changed to is expected
      */
-    void cd(const std::vector<std::string> &args);
+    bool cd(const std::vector<std::string> &args);
 
     /**
      * Print working directory function prints the current directory
      * Callable by using the 'pwd' command
      * @param args This function takes no arguments (only for genericity)
      */
-    void pwd(const std::vector<std::string> &args);
+    bool pwd(const std::vector<std::string> &args);
 
     /**
      * Info function prints information about a file or directory
      * Callable by using the 'info' command with the <filepath> argument
      * @param args <filepath> to be informed about is expected
      */
-    void info(const std::vector<std::string> &args);
+    bool info(const std::vector<std::string> &args);
 
     /**
      * In copy function copies a file from the <src> on disk to the <dst> on the file system
@@ -204,7 +204,7 @@ private:
      * @param args <src> and <dst> filepaths to copy from and to are expected
      *            (<src> is on the disk, <dst> is on the file system)
      */
-    void incp(const std::vector<std::string> &args);
+    bool incp(const std::vector<std::string> &args);
 
     /**
      * Out copy function copies a file from the <src> on the file system to the <dst> on disk
@@ -212,7 +212,7 @@ private:
      * @param args <src> and <dst> filepaths to copy from and to are expected
      *            (<src> is on the file system, <dst> is on the disk)
      */
-    void outcp(const std::vector<std::string> &args);
+    bool outcp(const std::vector<std::string> &args);
 
     /**
      * Load function loads a file from the disk and reads it line by line and executes the commands on the lines
@@ -220,7 +220,7 @@ private:
      * @param args <filepath> to be loaded is expected
      *            (<filepath> is on the disk)
      */
-    void load(const std::vector<std::string> &args);
+    bool load(const std::vector<std::string> &args);
 
     /**
      * Format function formats the file system to the given size <size> in bytes
@@ -228,14 +228,14 @@ private:
      * @param args <size> of the file system is expected (KB, MB and GB are supported)
      *            (examples: 1024, 10KB, 200MB, 2GB...)
      */
-    void format(const std::vector<std::string> &args);
+    bool format(const std::vector<std::string> &args);
 
     /**
      * Defragmentation function defragments the given file <filepath>
      * Callable by using the 'defrag' command with the <filepath> argument
      * @param args <filepath> to be defragmented is expected
      */
-    void defrag(const std::vector<std::string> &args);
+    bool defrag(const std::vector<std::string> &args);
 
 public:
     /**

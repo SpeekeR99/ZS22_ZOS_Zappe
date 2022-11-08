@@ -78,7 +78,7 @@ std::string PseudoFS::get_working_directory() const {
 }
 
 
-void PseudoFS::help(const std::vector<std::string> &args) {
+bool PseudoFS::help(const std::vector<std::string> &args) {
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
     std::cout << "| help              | display this message                                    |" << std::endl;
     std::cout << "| exit              | exit the program                                        |" << std::endl;
@@ -99,9 +99,10 @@ void PseudoFS::help(const std::vector<std::string> &args) {
     std::cout << "| format <size>     | format the file system with size <size>                 |" << std::endl;
     std::cout << "| defrag <file>     | defragment the file <file>                              |" << std::endl;
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
+    return true;
 }
 
-void PseudoFS::meta(const std::vector<std::string> &args) {
+bool PseudoFS::meta(const std::vector<std::string> &args) {
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
     std::cout << "Signature:          " << meta_data.signature << std::endl;
     std::cout << "Disk size:          " << meta_data.disk_size << std::endl;
@@ -111,28 +112,29 @@ void PseudoFS::meta(const std::vector<std::string> &args) {
     std::cout << "Fat size:           " << meta_data.fat_size << std::endl;
     std::cout << "Data start address: " << meta_data.data_start_address << std::endl;
     std::cout << "-------------------------------------------------------------------------------" << std::endl;
+    return true;
 }
 
-void PseudoFS::cp(const std::vector<std::string> &args) {
-
+bool PseudoFS::cp(const std::vector<std::string> &args) {
+    return false;
 }
 
-void PseudoFS::mv(const std::vector<std::string> &args) {
-
+bool PseudoFS::mv(const std::vector<std::string> &args) {
+    return false;
 }
 
-void PseudoFS::rm(const std::vector<std::string> &args) {
-
+bool PseudoFS::rm(const std::vector<std::string> &args) {
+    return false;
 }
 
-void PseudoFS::mkdir(const std::vector<std::string> &args) {
+bool PseudoFS::mkdir(const std::vector<std::string> &args) {
     // TODO: what if argument is not just a name, but a whole path?
 
     // Check if directory (or file) with the same name already exists
     for (const auto &entry : working_directory.entries) {
         if (entry.item_name == args[1]) {
             std::cerr << "ERROR: EXISTS" << std::endl;
-            return;
+            return false;
         }
     }
 
@@ -140,7 +142,7 @@ void PseudoFS::mkdir(const std::vector<std::string> &args) {
     auto cluster_index = find_free_cluster();
     if (!cluster_index) {
         std::cerr << "ERROR: NO SPACE" << std::endl;
-        return;
+        return false;
     }
     // Calculate address of the cluster
     auto cluster_address = meta_data.data_start_address + cluster_index * meta_data.cluster_size;
@@ -177,9 +179,10 @@ void PseudoFS::mkdir(const std::vector<std::string> &args) {
     working_directory.entries = get_directory_entries(working_directory.cluster_address);
 
     std::cout << "OK" << std::endl;
+    return true;
 }
 
-void PseudoFS::rmdir(const std::vector<std::string> &args) {
+bool PseudoFS::rmdir(const std::vector<std::string> &args) {
     // TODO: what if argument is not just a name, but a whole path?
 
     // Check if directory with the given name exists
@@ -192,14 +195,14 @@ void PseudoFS::rmdir(const std::vector<std::string> &args) {
     }
     if (entry.start_cluster == 0) {
         std::cerr << "ERROR: DIR NOT FOUND" << std::endl;
-        return;
+        return false;
     }
 
     // Check if directory is empty
     auto entries = get_directory_entries(entry.start_cluster);
     if (entries.size() > 2) {
         std::cerr << "ERROR: DIR NOT EMPTY" << std::endl;
-        return;
+        return false;
     }
 
     // Mark cluster as free in FAT table
@@ -229,32 +232,41 @@ void PseudoFS::rmdir(const std::vector<std::string> &args) {
     working_directory.entries = get_directory_entries(working_directory.cluster_address);
 
     std::cout << "OK" << std::endl;
+    return true;
 }
 
-void PseudoFS::ls(const std::vector<std::string> &args) {
-    // If no argument is given, list working directory
-    if (args.size() == 1) {
-        for (const auto &entry: working_directory.entries) {
-            std::cout << entry.item_name << " ";
-            if (entry.is_directory)
-                std::cout << "<DIR> ";
-            else
-                std::cout << "<FILE> ";
-            std::cout << entry.size << "B ";
-            std::cout << entry.start_cluster << std::endl;
-        }
+bool PseudoFS::ls(const std::vector<std::string> &args) {
+    // If argument is given, change working directory
+    bool result_cd = true;
+    auto saved_working_directory = working_directory;
+    if (args.size() > 1)
+        result_cd = this->cd(args);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd)
+        return false;
+
+    // List directory entries in working directory
+    for (const auto &entry: working_directory.entries) {
+        std::cout << entry.item_name << " ";
+        if (entry.is_directory)
+            std::cout << "<DIR> ";
+        else
+            std::cout << "<FILE> ";
+        std::cout << entry.size << "B ";
+        std::cout << entry.start_cluster << std::endl;
     }
-    // If argument is given, list directory with the given path
-    else {
-        // TODO: ls <dir> -> prevest vse na absolutni cestu, pak cd na tu cestu, pak obycejne ls, pak cd zpet
-    }
+
+    // Restore working directory
+    working_directory = saved_working_directory;
+    return true;
 }
 
-void PseudoFS::cat(const std::vector<std::string> &args) {
-
+bool PseudoFS::cat(const std::vector<std::string> &args) {
+    return false;
 }
 
-void PseudoFS::cd(const std::vector<std::string> &args) {
+bool PseudoFS::cd(const std::vector<std::string> &args) {
     // If no argument is given, go to root directory
     if (args.size() == 1) {
         working_directory = WorkingDirectory{
@@ -262,7 +274,8 @@ void PseudoFS::cd(const std::vector<std::string> &args) {
             "/",
             get_directory_entries(meta_data.data_start_address)
         };
-        return;
+        std::cout << "OK" << std::endl;
+        return true;
     }
 
     // Save current working directory
@@ -299,18 +312,18 @@ void PseudoFS::cd(const std::vector<std::string> &args) {
         if (entry.start_cluster == 0) {
             std::cerr << "ERROR: PATH NOT FOUND" << std::endl;
             working_directory = saved_working_directory;
-            return;
+            return false;
         }
 
         // Go to the directory = update working directory
         if (entry.item_name[0] == '.') {
-            // If argument is .. go to parent directory
+            // If argument is ".." go to parent directory
             if (entry.item_name[1] == '.') {
                 working_directory.path = working_directory.path.substr(0, working_directory.path.find_last_of('/'));
                 working_directory.path = working_directory.path.substr(0, working_directory.path.find_last_of('/'));
                 working_directory.path += "/";
             }
-                // If argument is . do nothing
+                // If argument is "." do nothing
             else
                 continue;
         }
@@ -325,29 +338,31 @@ void PseudoFS::cd(const std::vector<std::string> &args) {
     }
 
     std::cout << "OK" << std::endl;
+    return true;
 }
 
-void PseudoFS::pwd(const std::vector<std::string> &args) {
+bool PseudoFS::pwd(const std::vector<std::string> &args) {
     std::cout << working_directory.path << std::endl;
+    return true;
 }
 
-void PseudoFS::info(const std::vector<std::string> &args) {
-
+bool PseudoFS::info(const std::vector<std::string> &args) {
+    return false;
 }
 
-void PseudoFS::incp(const std::vector<std::string> &args) {
-
+bool PseudoFS::incp(const std::vector<std::string> &args) {
+    return false;
 }
 
-void PseudoFS::outcp(const std::vector<std::string> &args) {
-
+bool PseudoFS::outcp(const std::vector<std::string> &args) {
+    return false;
 }
 
-void PseudoFS::load(const std::vector<std::string> &args) {
-
+bool PseudoFS::load(const std::vector<std::string> &args) {
+    return false;
 }
 
-void PseudoFS::format(const std::vector<std::string> &args) {
+bool PseudoFS::format(const std::vector<std::string> &args) {
     // Get the user input for the disk size
     uint32_t disk_size = std::stoi(args[1]);
     if (args[1].find("KB") != std::string::npos)
@@ -415,8 +430,9 @@ void PseudoFS::format(const std::vector<std::string> &args) {
     };
 
     std::cout << "OK" << std::endl;
+    return true;
 }
 
-void PseudoFS::defrag(const std::vector<std::string> &args) {
-
+bool PseudoFS::defrag(const std::vector<std::string> &args) {
+    return false;
 }

@@ -1,6 +1,5 @@
 #include <memory>
 #include <iostream>
-#include <sstream>
 #include "pseudofat.h"
 
 int main(int argc, char **argv) {
