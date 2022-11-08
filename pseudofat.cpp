@@ -255,7 +255,57 @@ void PseudoFS::cat(const std::vector<std::string> &args) {
 }
 
 void PseudoFS::cd(const std::vector<std::string> &args) {
+    // If no argument is given, go to root directory
+    if (args.size() == 1) {
+        working_directory = WorkingDirectory{
+            meta_data.data_start_address,
+            "/",
+            get_directory_entries(meta_data.data_start_address)
+        };
+        return;
+    }
 
+    // TODO: what if argument is not just a name, but a whole path?
+
+    // If argument is given, go to directory with the given path
+    auto entry = DirectoryEntry{};
+    for (const auto &entry_for : working_directory.entries) {
+        if (entry_for.item_name == args[1]) {
+            entry = entry_for;
+            break;
+        }
+    }
+
+    // Check if directory with the given name exists
+    if (entry.start_cluster == 0) {
+        std::cerr << "ERROR: PATH NOT FOUND" << std::endl;
+        return;
+    }
+
+    // Go to the directory = update working directory
+    if (entry.item_name[0] == '.') {
+        // If argument is .. go to parent directory
+        if (entry.item_name[1] == '.') {
+            working_directory.path = working_directory.path.substr(0, working_directory.path.find_last_of('/'));
+            working_directory.path = working_directory.path.substr(0, working_directory.path.find_last_of('/'));
+            working_directory.path += "/";
+        }
+        // If argument is . do nothing
+        else {
+            std::cout << "OK" << std::endl;
+            return;
+        }
+    }
+    // If argument is a directory name, go to the directory
+    else {
+        working_directory.path += entry.item_name;
+        working_directory.path += "/";
+    }
+    // Update working directory
+    working_directory.cluster_address = entry.start_cluster;
+    working_directory.entries = get_directory_entries(entry.start_cluster);
+
+    std::cout << "OK" << std::endl;
 }
 
 void PseudoFS::pwd(const std::vector<std::string> &args) {
