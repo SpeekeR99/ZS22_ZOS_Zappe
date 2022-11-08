@@ -141,7 +141,7 @@ bool PseudoFS::mkdir(const std::vector<std::string> &args) {
     auto saved_working_directory = working_directory;
     std::string dir_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
     std::string dir_path = args[1].substr(0, args[1].find_last_of('/') + 1);
-    std::vector<std::string> cd_args = {"cd", dir_path};
+    std::vector<std::string> cd_args = {"cd", dir_path, "don't print ok"};
     bool result_cd = true;
     // If directory path is not empty, change working directory
     if (args[1].find('/') != std::string::npos)
@@ -214,7 +214,7 @@ bool PseudoFS::rmdir(const std::vector<std::string> &args) {
     auto saved_working_directory = working_directory;
     std::string dir_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
     std::string dir_path = args[1].substr(0, args[1].find_last_of('/') + 1);
-    std::vector<std::string> cd_args = {"cd", dir_path};
+    std::vector<std::string> cd_args = {"cd", dir_path, "don't print ok"};
     bool result_cd = true;
     // If directory path is not empty, change working directory
     if (args[1].find('/') != std::string::npos)
@@ -283,8 +283,10 @@ bool PseudoFS::ls(const std::vector<std::string> &args) {
     // If argument is given, change working directory
     bool result_cd = true;
     auto saved_working_directory = working_directory;
-    if (args.size() > 1)
-        result_cd = this->cd(args);
+    if (args.size() > 1) {
+        std::vector<std::string> cd_args = {"cd", args[1], "don't print ok"};
+        result_cd = this->cd(cd_args);
+    }
 
     // Error could have occurred while changing working directory
     if (!result_cd)
@@ -382,7 +384,8 @@ bool PseudoFS::cd(const std::vector<std::string> &args) {
         working_directory.entries = get_directory_entries(entry.start_cluster);
     }
 
-    std::cout << "OK" << std::endl;
+    if (args.size() == 2) // When other functions use this function, they don't want to print OK
+        std::cout << "OK" << std::endl;
     return true;
 }
 
