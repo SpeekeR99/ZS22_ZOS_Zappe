@@ -128,11 +128,20 @@ bool PseudoFS::rm(const std::vector<std::string> &args) {
 }
 
 bool PseudoFS::mkdir(const std::vector<std::string> &args) {
-    // TODO: what if argument is not just a name, but a whole path?
+    // If argument is given, change working directory
+    auto saved_working_directory = working_directory;
+    std::string dir_name = args[1].substr(args[1].find_last_of('/') + 1);
+    std::string dir_path = args[1].substr(0, args[1].find_last_of('/'));
+    std::vector<std::string> cd_args = {"cd", dir_path};
+    bool result_cd = this->cd(cd_args);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd)
+        return false;
 
     // Check if directory (or file) with the same name already exists
     for (const auto &entry : working_directory.entries) {
-        if (entry.item_name == args[1]) {
+        if (entry.item_name == dir_name) {
             std::cerr << "ERROR: EXISTS" << std::endl;
             return false;
         }
@@ -153,8 +162,9 @@ bool PseudoFS::mkdir(const std::vector<std::string> &args) {
 
     // Create new directory entry
     DirectoryEntry entry{"", true, 0, cluster_address};
-    for (int i = 0; i < DEFAULT_FILE_NAME_LENGTH; i++)
-        entry.item_name[i] = args[1][i];
+    for (int i = 0; i < DEFAULT_FILE_NAME_LENGTH - 1; i++)
+        entry.item_name[i] = dir_name[i];
+    entry.item_name[DEFAULT_FILE_NAME_LENGTH - 1] = '\0';
     DirectoryEntry this_entry{".", true, 0, cluster_address};
     DirectoryEntry parent_entry{"..", true, 0, working_directory.cluster_address};
 
@@ -177,6 +187,9 @@ bool PseudoFS::mkdir(const std::vector<std::string> &args) {
 
     // Update working directory
     working_directory.entries = get_directory_entries(working_directory.cluster_address);
+
+    // Restore working directory
+    working_directory = saved_working_directory;
 
     std::cout << "OK" << std::endl;
     return true;
@@ -259,6 +272,7 @@ bool PseudoFS::ls(const std::vector<std::string> &args) {
 
     // Restore working directory
     working_directory = saved_working_directory;
+
     return true;
 }
 
