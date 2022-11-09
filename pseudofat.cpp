@@ -352,9 +352,9 @@ bool PseudoFS::ls(const std::vector<std::string> &args) {
 bool PseudoFS::cat(const std::vector<std::string> &args) {
     // Change working directory
     auto saved_working_directory = working_directory;
-    std::string dir_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
-    std::string dir_path = args[1].substr(0, args[1].find_last_of('/') + 1);
-    std::vector<std::string> cd_args = {"cd", dir_path, "don't print ok"};
+    std::string file_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
+    std::string file_path = args[1].substr(0, args[1].find_last_of('/') + 1);
+    std::vector<std::string> cd_args = {"cd", file_path, "don't print ok"};
     bool result_cd = true;
     // If directory path is not empty, change working directory
     if (args[1].find('/') != std::string::npos)
@@ -369,7 +369,7 @@ bool PseudoFS::cat(const std::vector<std::string> &args) {
     // Check if file with the given name exists
     auto entry = DirectoryEntry{};
     for (const auto &entry_for: working_directory.entries) {
-        if (entry_for.item_name == dir_name) {
+        if (entry_for.item_name == file_name) {
             entry = entry_for;
             break;
         }
@@ -404,13 +404,12 @@ bool PseudoFS::cat(const std::vector<std::string> &args) {
         else {
             char buffer[entry.size % meta_data.cluster_size];
             file_system.read(buffer, static_cast<int>(entry.size % meta_data.cluster_size));
-            std::cout << buffer;
+            std::cout << buffer << std::endl;
         }
 
         file_system.seekg(meta_data.fat_start_address + (cluster_address - meta_data.data_start_address) / meta_data.cluster_size * sizeof(uint32_t));
         file_system.read(reinterpret_cast<char *>(&cluster_address), sizeof(uint32_t));
     }
-    std::cout << std::endl;
 
     // Restore working directory
     working_directory = saved_working_directory;
@@ -500,7 +499,58 @@ bool PseudoFS::pwd(const std::vector<std::string> &args) {
 }
 
 bool PseudoFS::info(const std::vector<std::string> &args) {
-    return false;
+    // Change working directory
+    auto saved_working_directory = working_directory;
+    std::string file_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
+    std::string file_path = args[1].substr(0, args[1].find_last_of('/') + 1);
+    std::vector<std::string> cd_args = {"cd", file_path, "don't print ok"};
+    bool result_cd = true;
+    // If directory path is not empty, change working directory
+    if (args[1].find('/') != std::string::npos)
+        result_cd = this->cd(cd_args);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd) {
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if file with the given name exists
+    auto entry = DirectoryEntry{};
+    for (const auto &entry_for: working_directory.entries) {
+        if (entry_for.item_name == file_name) {
+            entry = entry_for;
+            break;
+        }
+    }
+    if (entry.start_cluster == 0) {
+        std::cerr << "ERROR: FILE NOT FOUND" << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Print file info
+    std::cout << "File name: " << entry.item_name << std::endl;
+    if (entry.is_directory)
+        std::cout << "Type: directory" << std::endl;
+    else
+        std::cout << "Type: file" << std::endl;
+    std::cout << "File size: " << entry.size << " B" << std::endl;
+    std::cout << "File start cluster address: " << entry.start_cluster << std::endl;
+    std::cout << "File clusters: ";
+    uint32_t cluster_address = entry.start_cluster;
+    while (cluster_address != FAT_EOF) {
+        uint32_t cluster = (cluster_address - meta_data.data_start_address) / meta_data.cluster_size;
+        std::cout << cluster << " ";
+        file_system.seekg(meta_data.fat_start_address + cluster * sizeof(uint32_t));
+        file_system.read(reinterpret_cast<char *>(&cluster_address), sizeof(uint32_t));
+    }
+    std::cout <<  std::endl;
+
+    // Restore working directory
+    working_directory = saved_working_directory;
+
+    return true;
 }
 
 bool PseudoFS::incp(const std::vector<std::string> &args) {
