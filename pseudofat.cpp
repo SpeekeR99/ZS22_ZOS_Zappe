@@ -171,7 +171,84 @@ bool PseudoFS::mv(const std::vector<std::string> &args) {
 }
 
 bool PseudoFS::rm(const std::vector<std::string> &args) {
-    return false;
+    // Change working directory
+    auto saved_working_directory = working_directory;
+    std::string file_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
+    std::string file_path = args[1].substr(0, args[1].find_last_of('/') + 1);
+    std::vector<std::string> cd_args = {"cd", file_path, "don't print ok"};
+    bool result_cd = true;
+    // If directory path is not empty, change working directory
+    if (args[1].find('/') != std::string::npos)
+        result_cd = this->cd(cd_args);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd) {
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if file with the given name exists
+    auto entry = DirectoryEntry{};
+    for (const auto &entry_for: working_directory.entries) {
+        if (entry_for.item_name == file_name) {
+            entry = entry_for;
+            break;
+        }
+    }
+    if (entry.start_cluster == 0) {
+        std::cerr << "ERROR: FILE NOT FOUND" << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if file is not a directory
+    if (entry.is_directory) {
+        std::cerr << "ERROR: FILE IS A DIRECTORY" << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Remove file
+    uint32_t cluster_address = entry.start_cluster;
+    uint32_t number_of_iterations = entry.size / meta_data.cluster_size;
+    if (entry.size % meta_data.cluster_size != 0)
+        number_of_iterations++;
+
+    for (int i = 0; i < number_of_iterations; i++) {
+        file_system.seekg(cluster_address);
+        uint32_t next_cluster{};
+
+        for (auto j = 0; j < meta_data.cluster_size; j++)
+            file_system.write("\0", sizeof(char));
+
+        file_system.seekg(meta_data.fat_start_address + (cluster_address - meta_data.data_start_address) / meta_data.cluster_size * sizeof(uint32_t));
+        file_system.read(reinterpret_cast<char *>(&next_cluster), sizeof(uint32_t));
+        file_system.seekg(meta_data.fat_start_address + (cluster_address - meta_data.data_start_address) / meta_data.cluster_size * sizeof(uint32_t));
+        file_system.write(reinterpret_cast<const char *>(&FAT_FREE), sizeof(uint32_t));
+        cluster_address = next_cluster;
+    }
+    file_system.seekg(meta_data.fat_start_address + (cluster_address - meta_data.data_start_address) / meta_data.cluster_size * sizeof(uint32_t));
+    file_system.write(reinterpret_cast<const char *>(&FAT_FREE), sizeof(uint32_t));
+
+    // Remove entry from directory
+    for (int i = 0; i < meta_data.cluster_size / sizeof(DirectoryEntry); i++) {
+        auto tmp = DirectoryEntry{};
+        file_system.seekp(working_directory.cluster_address + i * sizeof(DirectoryEntry));
+        file_system.read(reinterpret_cast<char *>(&tmp), sizeof(DirectoryEntry));
+        if (tmp.start_cluster == entry.start_cluster) {
+            file_system.seekp(working_directory.cluster_address + i * sizeof(DirectoryEntry));
+            DirectoryEntry empty_entry{};
+            file_system.write(reinterpret_cast<const char *>(&empty_entry), sizeof(DirectoryEntry));
+            break;
+        }
+    }
+
+    // Restore and update working directory
+    working_directory = saved_working_directory;
+    working_directory.entries = get_directory_entries(working_directory.cluster_address);
+
+    std::cout << "OK" << std::endl;
+    return true;
 }
 
 bool PseudoFS::mkdir(const std::vector<std::string> &args) {
@@ -382,7 +459,7 @@ bool PseudoFS::cat(const std::vector<std::string> &args) {
 
     // Check if it actually is a file
     if (entry.is_directory) {
-        std::cerr << "ERROR: NOT A FILE" << std::endl;
+        std::cerr << "ERROR: FILE IS A DIRECTORY" << std::endl;
         working_directory = saved_working_directory;
         return false;
     }
