@@ -261,7 +261,137 @@ bool PseudoFS::fat(const std::vector<std::string> &args) {
 }
 
 bool PseudoFS::cp(const std::vector<std::string> &args) {
-    return false;
+    // First check if the source file exists
+    auto saved_working_directory = working_directory;
+    std::string file_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
+    std::string file_path = args[1].substr(0, args[1].find_last_of('/'));
+    std::vector<std::string> cd_args_file = {"cd", file_path, "don't print ok"};
+    bool result_cd_file = true;
+    // If directory path is not empty, change working directory
+    if (args[1].find('/') != std::string::npos)
+        result_cd_file = this->cd(cd_args_file);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd_file) {
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if file with the given name exists
+    auto source_entry = DirectoryEntry{};
+    if (!does_entry_exist(file_name, source_entry)) {
+        std::cerr << FILE_NOT_FOUND << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if the source file is a directory
+    if (source_entry.is_directory) {
+        std::cerr << FILE_IS_DIRECTORY << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Second check that the destination directory exists
+    working_directory = saved_working_directory;
+
+    std::string new_file_name = args[2].substr(args[2].find_last_of('/') + 1, args[2].size());
+    std::string dir_path = args[2].substr(0, args[2].find_last_of('/'));
+    std::vector<std::string> cd_args_dir = {"cd", dir_path, "don't print ok"};
+    bool result_cd_dir = true;
+    // If directory path is not empty, change working directory
+    if (args[2].find('/') != std::string::npos)
+        result_cd_dir = this->cd(cd_args_dir);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd_dir) {
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if file with the given name exists
+    auto existence_check = DirectoryEntry{};
+    if (does_entry_exist(new_file_name, existence_check)) {
+        std::cerr << FILE_ALREADY_EXISTS << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Everything is fine, copy the file now - create new entry
+    auto new_entry = DirectoryEntry{
+        "",
+        false,
+        source_entry.size,
+        0
+    };
+    for (int i = 0; i < DEFAULT_FILE_NAME_LENGTH - 1; i++)
+        new_entry.item_name[i] = new_file_name[i];
+    new_entry.item_name[DEFAULT_FILE_NAME_LENGTH - 1] = '\0';
+
+    // Find free cluster
+    auto index = find_free_cluster();
+    if (index == FAT_EOF) {
+        std::cerr << NO_SPACE << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+    auto write_cluster_address = meta_data.data_start_address + index * meta_data.cluster_size;
+    auto write_cluster_index = get_cluster_index(write_cluster_address);
+    new_entry.start_cluster = write_cluster_address;
+    auto read_cluster_address = source_entry.start_cluster;
+    auto read_cluster_index = get_cluster_index(read_cluster_address);
+    write_to_fat(write_cluster_index, FAT_EOF); // Marking as used; EOF will do for now, later it will be changed
+    uint32_t previous_cluster_index = 0;
+
+    // Copy the file
+    auto number_of_iterations = source_entry.size / meta_data.cluster_size;
+    if (source_entry.size % meta_data.cluster_size)
+        number_of_iterations++;
+
+    for (int i = 0; i < number_of_iterations; i++) {
+        // Write cluster address to FAT
+        if (previous_cluster_index != 0)
+            write_to_fat(previous_cluster_index, write_cluster_address);
+
+        previous_cluster_index = write_cluster_index;
+
+        // Read and write cluster
+        if (i != number_of_iterations - 1) {
+            std::string buffer = read_from_cluster(read_cluster_address, static_cast<int>(meta_data.cluster_size));
+            write_to_cluster(write_cluster_address, buffer, static_cast<int>(meta_data.cluster_size));
+        }
+        // Last iteration
+        else {
+            std::string buffer = read_from_cluster(read_cluster_address, static_cast<int>(source_entry.size % meta_data.cluster_size));
+            write_to_cluster(write_cluster_address, buffer, static_cast<int>(source_entry.size % meta_data.cluster_size));
+            break;
+        }
+
+        // Find next free cluster
+        index = find_free_cluster();
+        if (!index) {
+            std::cerr << NO_SPACE << std::endl;
+            working_directory = saved_working_directory;
+            return false;
+        }
+        write_cluster_index = meta_data.fat_start_address + index * sizeof(uint32_t);
+        write_to_fat(write_cluster_index, FAT_EOF); // Marking as used; EOF will do for now, later it will be changed
+        write_cluster_address = get_cluster_address(write_cluster_index);
+
+        // Find next cluster to read
+        read_cluster_address = read_from_fat(read_cluster_index);
+        read_cluster_index = get_cluster_index(read_cluster_address);
+    }
+
+    // Write directory entry to directory
+    write_directory_entry(working_directory.cluster_address, new_entry);
+
+    // Restore and update working directory
+    working_directory = saved_working_directory;
+    working_directory.entries = get_directory_entries(working_directory.cluster_address);
+
+    std::cout << OK << std::endl;
+    return true;
 }
 
 bool PseudoFS::mv(const std::vector<std::string> &args) {
@@ -789,6 +919,7 @@ bool PseudoFS::incp(const std::vector<std::string> &args) {
             source_file.seekg(i * meta_data.cluster_size);
             source_file.read(buffer, static_cast<int>(file_size % meta_data.cluster_size));
             write_to_cluster(current_cluster_address, buffer, static_cast<int>(file_size % meta_data.cluster_size));
+            break;
         }
 
         // Find next free cluster
