@@ -214,6 +214,14 @@ private:
     bool change_directory(const std::string &dir_name);
 
     /**
+     * Checks if the given file is defragmented
+     * @param entry File entry to be checked
+     * @param clusters Vector of clusters to be returned (if the file system is not defragmented)
+     * @return True if the file is defragmented, false otherwise
+     */
+    bool is_file_defragmented(const DirectoryEntry &entry, std::vector<uint32_t> &clusters);
+
+    /**
      * Help function to list all commands
      * Callable by using the 'help' command
      * @param args This function takes no arguments (only for genericity)

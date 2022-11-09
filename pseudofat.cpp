@@ -189,6 +189,27 @@ bool PseudoFS::change_directory(const std::string &dir_name) {
     return false;
 }
 
+bool PseudoFS::is_file_defragmented(const DirectoryEntry &entry, std::vector<uint32_t> &clusters) {
+    // Get the first cluster of the file
+    auto cluster_address = entry.start_cluster;
+    auto cluster_index = get_cluster_index(cluster_address);
+
+    // Get all the clusters of the file
+    while (cluster_address != FAT_EOF) {
+        clusters.push_back((cluster_index - meta_data.fat_start_address) / sizeof(uint32_t));
+        cluster_address = read_from_fat(cluster_index);
+        cluster_index = get_cluster_index(cluster_address);
+    }
+
+    // If the clusters are consecutive in the file system, the file is defragmented
+    for (int i = 0; i < clusters.size() - 1; i++) {
+        if (clusters[i] + 1 != clusters[i + 1])
+            return false;
+    }
+
+    return true;
+}
+
 void PseudoFS::call_cmd(const std::string &cmd, const std::vector<std::string> &args) {
     if (commands.count(cmd))
         (this->*commands[cmd])(args);
@@ -1113,5 +1134,103 @@ bool PseudoFS::format(const std::vector<std::string> &args) {
 }
 
 bool PseudoFS::defrag(const std::vector<std::string> &args) {
-    return false;
+    // Check if the filepath is valid
+    auto saved_working_directory = working_directory;
+    std::string file_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
+    std::string file_path = args[1].substr(0, args[1].find_last_of('/'));
+    std::vector<std::string> cd_args_file = {"cd", file_path, "don't print ok"};
+    bool result_cd_file = true;
+    // If directory path is not empty, change working directory
+    if (args[1].find('/') != std::string::npos)
+        result_cd_file = this->cd(cd_args_file);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd_file) {
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if file with the given name exists
+    auto entry = DirectoryEntry{};
+    if (!does_entry_exist(file_name, entry)) {
+        std::cerr << FILE_NOT_FOUND << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if the source file is a directory
+    if (entry.is_directory) {
+        std::cerr << FILE_IS_DIRECTORY << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if the file is already defragmented
+    std::vector<uint32_t> clusters;
+    if (is_file_defragmented(entry, clusters)) {
+        working_directory = saved_working_directory;
+        return true;
+    }
+
+    // Find new clusters that are consecutive
+    auto number_of_needed_consecutive_clusters = clusters.size();
+    std::vector<uint32_t> new_clusters;
+    for (;;) {
+        bool found = true;
+        auto index = find_free_cluster();
+        new_clusters.push_back(index);
+        write_to_fat(meta_data.fat_start_address + index * sizeof(uint32_t), FAT_EOF); // Mark the cluster as used
+        if (new_clusters.size() == number_of_needed_consecutive_clusters) {
+            for (int i = 0; i < number_of_needed_consecutive_clusters - 1; i++) {
+                if (new_clusters[i] + 1 != new_clusters[i + 1]) {
+                    write_to_fat(meta_data.fat_start_address + new_clusters[0] * sizeof(uint32_t), 42); // Mark the cluster as "free"
+                    new_clusters.erase(new_clusters.begin());
+                    found = false;
+                    break;
+                }
+            }
+            if (found) break;
+        }
+    }
+    // Truly free clusters that were markes as "free"
+    for (int i = 0; i < meta_data.cluster_count; i++) {
+        uint32_t fat_value = read_from_fat(meta_data.fat_start_address + i * sizeof(uint32_t));
+        if (fat_value == 42)
+            write_to_fat(meta_data.fat_start_address + i * sizeof(uint32_t), FAT_FREE);
+    }
+
+    // Copy the data from the old clusters to the new ones
+    for (int i = 0; i < number_of_needed_consecutive_clusters; i++) {
+        std::string data = read_from_cluster(meta_data.data_start_address + clusters[i] * meta_data.cluster_size, static_cast<int>(meta_data.cluster_size));
+        write_to_cluster(meta_data.data_start_address + new_clusters[i] * meta_data.cluster_size, data, static_cast<int>(meta_data.cluster_size));
+    }
+
+    // Update the FAT table
+    for (int i = 0; i < number_of_needed_consecutive_clusters - 1; i++)
+        write_to_fat(meta_data.fat_start_address + new_clusters[i] * sizeof(uint32_t), meta_data.data_start_address + new_clusters[i + 1] * meta_data.cluster_size);
+
+    // Free the old clusters
+    for (int i = 0; i < number_of_needed_consecutive_clusters; i++) {
+        write_to_fat(meta_data.fat_start_address + clusters[i] * sizeof(uint32_t), FAT_FREE);
+        write_to_cluster(meta_data.data_start_address + clusters[i] * meta_data.cluster_size, EMPTY_CLUSTER, static_cast<int>(meta_data.cluster_size));
+    }
+
+    // Update the file entry
+    auto new_entry = DirectoryEntry{
+        "",
+        entry.is_directory,
+        entry.size,
+        meta_data.data_start_address + new_clusters[0] * meta_data.cluster_size
+    };
+    for (int i = 0; i < DEFAULT_FILE_NAME_LENGTH - 1; i++)
+        new_entry.item_name[i] = entry.item_name[i];
+    remove_directory_entry(working_directory.cluster_address, entry);
+    write_directory_entry(working_directory.cluster_address, new_entry);
+
+    // Update and restore working directory
+    working_directory = saved_working_directory;
+    working_directory.entries = get_directory_entries(working_directory.cluster_address);
+
+    std::cout << OK << std::endl;
+    return true;
 }
