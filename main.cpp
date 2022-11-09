@@ -3,12 +3,17 @@
 #include "pseudofat.h"
 
 int main(int argc, char **argv) {
-    std::unique_ptr<PseudoFS> fs = std::make_unique<PseudoFS>("myfs.dat");
+    if (argc != 2) {
+        std::cout << "Usage: " << argv[0] << " <file system name>" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::unique_ptr<PseudoFS> fs = std::make_unique<PseudoFS>(argv[1]);
 
     std::string token;
     std::vector<std::string> tokens;
     for (;;) {
-        std::cout << fs->get_working_directory() << "$ >" << std::flush;
+        std::cout << fs->get_working_directory_path() << "$ >" << std::flush;
         std::string input;
         std::getline(std::cin, input);
 
@@ -25,5 +30,5 @@ int main(int argc, char **argv) {
 
     std::cout << "Exiting..." << std::endl;
 
-    return 0;
+    return EXIT_SUCCESS;
 }

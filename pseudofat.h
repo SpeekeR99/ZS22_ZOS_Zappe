@@ -23,6 +23,28 @@ constexpr int32_t GB = 1024 * MB;
 constexpr uint32_t DEFAULT_CLUSTER_SIZE = 1 * KB;
 /** Default length of file name */
 constexpr uint32_t DEFAULT_FILE_NAME_LENGTH = 12;
+/** Default FILE NOT FOUND error message */
+constexpr const char *FILE_NOT_FOUND = "ERROR: FILE NOT FOUND";
+/** Default DIRECTORY NOT FOUND error message */
+constexpr const char *DIRECTORY_NOT_FOUND = "ERROR: DIR NOT FOUND";
+/** Default FILE ALREADY EXISTS error message */
+constexpr const char *FILE_ALREADY_EXISTS = "ERROR: FILE ALREADY EXISTS";
+/** Default DIRECTORY ALREADY EXISTS error message */
+constexpr const char *DIRECTORY_ALREADY_EXISTS = "ERROR: DIR ALREADY EXISTS";
+/** Default FILE IS DIRECTORY error message */
+constexpr const char *FILE_IS_DIRECTORY = "ERROR: IS DIR";
+/** Default DIRECTORY IS FILE error message */
+constexpr const char *FILE_IS_NOT_DIRECTORY = "ERROR: IS NOT DIR";
+/** Default DIRECTORY IS NOT EMPTY error message */
+constexpr const char *DIRECTORY_IS_NOT_EMPTY = "ERROR: DIR IS NOT EMPTY";
+/** Default NO SPACE error message */
+constexpr const char *NO_SPACE = "ERROR: NO SPACE";
+/** Default CANNOT REMOVE CURRENT DIRECTORY error message */
+constexpr const char *CANNOT_REMOVE_CURR_DIR = "ERROR: CANNOT REMOVE CURRENT DIR";
+/** Default PATH NOT FOUND error message */
+constexpr const char *PATH_NOT_FOUND = "ERROR: PATH NOT FOUND";
+/** Default OK message */
+constexpr const char *OK = "OK";
 
 /**
  * MetaData structure for the whole file system
@@ -93,6 +115,10 @@ private:
     struct MetaData meta_data;
     /** Working directory */
     struct WorkingDirectory working_directory;
+    /** Working directory representing the root directory */
+    struct WorkingDirectory ROOT_DIRECTORY;
+    /** String representing empty cluster (zeroes) */
+    std::string EMPTY_CLUSTER;
 
     /**
      * Initializes the command map
@@ -102,6 +128,56 @@ private:
     void initialize_command_map();
 
     /**
+     * Transforms FAT cluster index to cluster address offset in bytes in the file system
+     * @param cluster_index Index of the cluster in the FAT table (cluster index)
+     * @return Offset of the cluster in bytes (cluster address)
+     */
+    uint32_t get_cluster_address(uint32_t cluster_index) const;
+
+    /**
+     * Transforms cluster address offset in bytes in the file system to FAT cluster index
+     * @param cluster_address Offset of the cluster in bytes (cluster address)
+     * @return Index of the cluster in the FAT table (cluster index)
+     */
+    uint32_t get_cluster_index(uint32_t cluster_address) const;
+
+    /**
+    * Gets the first free cluster_address address in the FAT table
+    * @return Index of the first free cluster_address (or 0 if there are no free clusters)
+    */
+    uint32_t find_free_cluster();
+
+    /**
+     * Redas the data from the cluster
+     * @param cluster_address Address of the cluster in bytes
+     * @param size Size of the data to read in bytes
+     * @return Data read from the cluster
+     */
+    std::string read_from_cluster(uint32_t cluster_address, int size);
+
+    /**
+     * Writes the data to the cluster
+     * @param cluster_address Address of the cluster in bytes
+     * @param data Data to write to the cluster
+     * @param size Size of the data in bytes
+     */
+    void write_to_cluster(uint32_t cluster_address, const std::string &data, int size);
+
+    /**
+     * Reads the value from the FAT table
+     * @param cluster_index Index of the cluster in the FAT table
+     * @return Value of the cluster in the FAT table
+     */
+    uint32_t read_from_fat(uint32_t cluster_index);
+
+    /**
+     * Writes the value to the FAT table at the given index
+     * @param cluster_index Index of the cluster in the FAT table
+     * @param value Value to write to the FAT table
+     */
+    void write_to_fat(uint32_t cluster_index, uint32_t value);
+
+    /**
      * Gets the directory entries of a directory given by it's cluster_address index
      * @param cluster Cluster index of the directory
      * @return Vector of directory entries
@@ -109,17 +185,33 @@ private:
     std::vector<DirectoryEntry> get_directory_entries(uint32_t cluster);
 
     /**
-     * Gets the first free cluster_address address in the FAT table
-     * @return Index of the first free cluster_address (or 0 if there are no free clusters)
-     */
-    uint32_t find_free_cluster();
-
-    /**
      * Writes the DirectoryEntry to the given cluster_address (directory)
-     * @param cluster_address Cluster index of the directory
+     * @param cluster_address Cluster address of the directory
      * @param entry Entry to be written
      */
     void write_directory_entry(uint32_t cluster_address, const DirectoryEntry &entry);
+
+    /**
+     * Removes the DirectoryEntry from the given cluster_address (directory)
+     * @param cluster_address Cluster address of the directory
+     * @param entry Entry to be removed
+     */
+    void remove_directory_entry(uint32_t cluster_address, const DirectoryEntry &entry);
+
+    /**
+     * Checks if the entry given by the name exists in the current working directory
+     * @param name Name of the entry
+     * @param entry Entry to be found
+     * @return True if the entry exists, false otherwise
+     */
+    bool does_entry_exist(const std::string &name, DirectoryEntry &entry);
+
+    /**
+     * Changes current working directory to the given entry within the current working directory
+     * @param dir_name Name of the directory to change to (not a path)
+     * @return True if the directory was changed, false otherwise
+     */
+    bool change_directory(const std::string &dir_name);
 
     /**
      * Help function to list all commands
@@ -292,5 +384,5 @@ public:
      * Getter for the current directory of the file system
      * @return Current directory of the file system
      */
-    std::string get_working_directory() const;
+    std::string get_working_directory_path() const;
 };
