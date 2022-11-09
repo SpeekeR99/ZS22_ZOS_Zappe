@@ -823,7 +823,29 @@ bool PseudoFS::outcp(const std::vector<std::string> &args) {
 }
 
 bool PseudoFS::load(const std::vector<std::string> &args) {
-    return false;
+    // Open file from hard drive
+    std::ifstream command_file(args[1]);
+    if (!command_file.is_open()) {
+        std::cerr << "ERROR: PATH NOT FOUND" << std::endl;
+        return false;
+    }
+
+    // Read commands from file
+    std::string command;
+    std::string token;
+    std::vector<std::string> tokens;
+    while (std::getline(command_file, command)) {
+        std::stringstream ss(command);
+        tokens.clear();
+        while (std::getline(ss, token, ' '))
+            tokens.push_back(token);
+
+        std::cout << "Executing: " << command << std::endl;
+        call_cmd(tokens[0], tokens);
+    }
+
+    std::cout << "OK" << std::endl;
+    return true;
 }
 
 bool PseudoFS::format(const std::vector<std::string> &args) {
