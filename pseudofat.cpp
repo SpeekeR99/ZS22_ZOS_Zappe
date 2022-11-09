@@ -265,7 +265,78 @@ bool PseudoFS::cp(const std::vector<std::string> &args) {
 }
 
 bool PseudoFS::mv(const std::vector<std::string> &args) {
-    return false;
+    // First check that the file exists
+    auto saved_working_directory = working_directory;
+    std::string file_name = args[1].substr(args[1].find_last_of('/') + 1, args[1].size());
+    std::string file_path = args[1].substr(0, args[1].find_last_of('/'));
+    std::vector<std::string> cd_args_file = {"cd", file_path, "don't print ok"};
+    bool result_cd_file = true;
+    // If directory path is not empty, change working directory
+    if (args[1].find('/') != std::string::npos)
+        result_cd_file = this->cd(cd_args_file);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd_file) {
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if file with the given name exists
+    auto entry = DirectoryEntry{};
+    if (!does_entry_exist(file_name, entry)) {
+        std::cerr << FILE_NOT_FOUND << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Second check that the destination directory exists
+    working_directory = saved_working_directory;
+
+    std::string new_file_name = args[2].substr(args[2].find_last_of('/') + 1, args[2].size());
+    std::string dir_path = args[2].substr(0, args[2].find_last_of('/'));
+    std::vector<std::string> cd_args_dir = {"cd", dir_path, "don't print ok"};
+    bool result_cd_dir = true;
+    // If directory path is not empty, change working directory
+    if (args[2].find('/') != std::string::npos)
+        result_cd_dir = this->cd(cd_args_dir);
+
+    // Error could have occurred while changing working directory
+    if (!result_cd_dir) {
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Check if file with the given name exists
+    auto existence_check = DirectoryEntry{};
+    if (does_entry_exist(new_file_name, existence_check)) {
+        std::cerr << FILE_ALREADY_EXISTS << std::endl;
+        working_directory = saved_working_directory;
+        return false;
+    }
+
+    // Everything looks fine, let's move the file - remove the entry from the old path
+    working_directory = saved_working_directory;
+    if (args[1].find('/') != std::string::npos)
+        cd(cd_args_file);
+    remove_directory_entry(working_directory.cluster_address, entry);
+
+    // Modify the file name
+    for (int i = 0; i < DEFAULT_FILE_NAME_LENGTH - 1; i++)
+        entry.item_name[i] = new_file_name[i];
+    entry.item_name[DEFAULT_FILE_NAME_LENGTH - 1] = '\0';
+
+    // Add the entry to the new path
+    working_directory = saved_working_directory;
+    if (args[2].find('/') != std::string::npos)
+        cd(cd_args_dir);
+    write_directory_entry(working_directory.cluster_address, entry);
+
+    // Restore and update working directory
+    working_directory = saved_working_directory;
+    working_directory.entries = get_directory_entries(working_directory.cluster_address);
+
+    std::cout << OK << std::endl;
+    return true;
 }
 
 bool PseudoFS::rm(const std::vector<std::string> &args) {
