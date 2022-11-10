@@ -158,6 +158,7 @@ bool PseudoFS::does_entry_exist(const std::string &name, DirectoryEntry &entry) 
 bool PseudoFS::change_directory(const std::string &dir_name) {
     // If the dir_name is empty or "/", change to the root directory
     if (dir_name.empty() || dir_name == "/") {
+        ROOT_DIRECTORY.entries = get_directory_entries(ROOT_DIRECTORY.cluster_address);
         working_directory = ROOT_DIRECTORY;
         return true;
     }
@@ -572,8 +573,8 @@ bool PseudoFS::mkdir(const std::vector<std::string> &args) {
     }
 
     // Check if directory (or file) with the same name already exists
-    auto existance_check = DirectoryEntry{};
-    if (does_entry_exist(dir_name, existance_check)) {
+    auto existence_check = DirectoryEntry{};
+    if (does_entry_exist(dir_name, existence_check)) {
         std::cerr << DIRECTORY_ALREADY_EXISTS << std::endl;
         working_directory = saved_working_directory;
         return false;
@@ -1198,7 +1199,7 @@ bool PseudoFS::defrag(const std::vector<std::string> &args) {
             if (found) break;
         }
     }
-    // Truly free clusters that were markes as "free"
+    // Truly free clusters that were marked as "free"
     for (int i = 0; i < meta_data.cluster_count; i++) {
         uint32_t fat_value = read_from_fat(meta_data.fat_start_address + i * sizeof(uint32_t));
         if (fat_value == 42)
