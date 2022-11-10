@@ -363,9 +363,7 @@ bool PseudoFS::cp(const std::vector<std::string> &args) {
     uint32_t previous_cluster_index = 0;
 
     // Copy the file
-    auto number_of_iterations = source_entry.size / meta_data.cluster_size;
-    if (source_entry.size % meta_data.cluster_size)
-        number_of_iterations++;
+    auto number_of_iterations = source_entry.size / meta_data.cluster_size + 1;
 
     for (int i = 0; i < number_of_iterations; i++) {
         // Write cluster address to FAT
@@ -529,9 +527,7 @@ bool PseudoFS::rm(const std::vector<std::string> &args) {
     // Remove file
     auto cluster_address = entry.start_cluster;
     auto cluster_index = get_cluster_index(cluster_address);
-    auto number_of_iterations = entry.size / meta_data.cluster_size;
-    if (entry.size % meta_data.cluster_size)
-        number_of_iterations++;
+    auto number_of_iterations = entry.size / meta_data.cluster_size + 1;
 
     for (int i = 0; i < number_of_iterations; i++) {
         write_to_cluster(cluster_address, &EMPTY_CLUSTER[0], static_cast<int>(meta_data.cluster_size));
@@ -747,9 +743,7 @@ bool PseudoFS::cat(const std::vector<std::string> &args) {
     // Read file
     auto cluster_address = entry.start_cluster;
     auto cluster_index = get_cluster_index(cluster_address);
-    auto number_of_iterations = entry.size / meta_data.cluster_size;
-    if (entry.size % meta_data.cluster_size != 0)
-        number_of_iterations++;
+    auto number_of_iterations = entry.size / meta_data.cluster_size + 1;
 
     for (int i = 0; i < number_of_iterations; i++) {
         if (i != number_of_iterations - 1) {
@@ -901,9 +895,7 @@ bool PseudoFS::incp(const std::vector<std::string> &args) {
 
     // Get file size
     uint32_t file_size = buffer.size();
-    auto number_of_iterations = file_size / meta_data.cluster_size;
-    if (file_size % meta_data.cluster_size != 0)
-        number_of_iterations++;
+    auto number_of_iterations = file_size / meta_data.cluster_size + 1;
 
     // Iterate over clusters and write data to them from source file (and write cluster addresses to FAT)
     auto index = find_free_cluster();
@@ -1006,9 +998,7 @@ bool PseudoFS::outcp(const std::vector<std::string> &args) {
     // Iterate over clusters and write data to destination file
     auto current_cluster_address = entry.start_cluster;
     auto current_cluster_index = get_cluster_index(current_cluster_address);
-    auto number_of_iterations = entry.size / meta_data.cluster_size;
-    if (entry.size % meta_data.cluster_size != 0)
-        number_of_iterations++;
+    auto number_of_iterations = entry.size / meta_data.cluster_size + 1;
 
     for (auto i = 0; i < number_of_iterations; i++) {
         // Read data from cluster
