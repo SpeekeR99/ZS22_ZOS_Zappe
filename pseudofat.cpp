@@ -74,16 +74,14 @@ uint32_t PseudoFS::find_free_cluster() {
     return 0;
 }
 
-std::string PseudoFS::read_from_cluster(uint32_t cluster_address, int size) {
-    char buffer[size];
+void PseudoFS::read_from_cluster(uint32_t cluster_address, char *buffer, int size) {
     file_system.seekp(cluster_address);
     file_system.read(buffer, size);
-    return (buffer);
 }
 
-void PseudoFS::write_to_cluster(uint32_t cluster_address, const std::string &data, int size) {
+void PseudoFS::write_to_cluster(uint32_t cluster_address, char *buffer, int size) {
     file_system.seekp(cluster_address);
-    file_system.write(data.c_str(), size);
+    file_system.write(buffer, size);
 }
 
 uint32_t PseudoFS::read_from_fat(uint32_t cluster_index) {
@@ -378,15 +376,19 @@ bool PseudoFS::cp(const std::vector<std::string> &args) {
 
         // Read and write cluster
         if (i != number_of_iterations - 1) {
-            std::string buffer = read_from_cluster(read_cluster_address, static_cast<int>(meta_data.cluster_size));
+            char *buffer = new char[meta_data.cluster_size];
+            read_from_cluster(read_cluster_address, buffer, static_cast<int>(meta_data.cluster_size));
             write_to_cluster(write_cluster_address, buffer, static_cast<int>(meta_data.cluster_size));
+            delete[] buffer;
         }
             // Last iteration
         else {
-            std::string buffer = read_from_cluster(read_cluster_address,
-                                                   static_cast<int>(source_entry.size % meta_data.cluster_size));
+            char *buffer = new char[source_entry.size % meta_data.cluster_size];
+            read_from_cluster(read_cluster_address, buffer,
+                              static_cast<int>(source_entry.size % meta_data.cluster_size));
             write_to_cluster(write_cluster_address, buffer,
                              static_cast<int>(source_entry.size % meta_data.cluster_size));
+            delete[] buffer;
             break;
         }
 
@@ -532,7 +534,7 @@ bool PseudoFS::rm(const std::vector<std::string> &args) {
         number_of_iterations++;
 
     for (int i = 0; i < number_of_iterations; i++) {
-        write_to_cluster(cluster_address, EMPTY_CLUSTER, static_cast<int>(meta_data.cluster_size));
+        write_to_cluster(cluster_address, &EMPTY_CLUSTER[0], static_cast<int>(meta_data.cluster_size));
 
         auto next_cluster = read_from_fat(cluster_index);
         write_to_fat(cluster_index, FAT_FREE);
@@ -668,7 +670,7 @@ bool PseudoFS::rmdir(const std::vector<std::string> &args) {
     remove_directory_entry(working_directory.cluster_address, entry);
 
     // Mark cluster as free by putting zeroes in it
-    write_to_cluster(entry.start_cluster, EMPTY_CLUSTER, static_cast<int>(meta_data.cluster_size));
+    write_to_cluster(entry.start_cluster, &EMPTY_CLUSTER[0], static_cast<int>(meta_data.cluster_size));
 
     // Restore and update working directory
     working_directory = saved_working_directory;
@@ -752,14 +754,18 @@ bool PseudoFS::cat(const std::vector<std::string> &args) {
     for (int i = 0; i < number_of_iterations; i++) {
         if (i != number_of_iterations - 1) {
             auto bytes_to_read = meta_data.cluster_size;
-            auto buffer = read_from_cluster(cluster_address, static_cast<int>(bytes_to_read));
+            char *buffer = new char[bytes_to_read];
+            read_from_cluster(cluster_address, buffer, static_cast<int>(bytes_to_read));
             std::cout << buffer;
+            delete[] buffer;
         }
             // Last iteration
         else {
             auto bytes_to_read = entry.size % meta_data.cluster_size;
-            auto buffer = read_from_cluster(cluster_address, static_cast<int>(bytes_to_read));
+            char *buffer = new char[bytes_to_read];
+            read_from_cluster(cluster_address, buffer, static_cast<int>(bytes_to_read));
             std::cout << buffer << std::endl;
+            delete[] buffer;
         }
 
         cluster_address = read_from_fat(cluster_index);
@@ -933,12 +939,12 @@ bool PseudoFS::incp(const std::vector<std::string> &args) {
         if (i != number_of_iterations - 1) {
             std::string cluster_buffer = std::string(buffer.begin() + static_cast<int>(i * meta_data.cluster_size),
                                                      buffer.begin() + static_cast<int>((i + 1) * meta_data.cluster_size));
-            write_to_cluster(current_cluster_address, cluster_buffer, static_cast<int>(meta_data.cluster_size));
+            write_to_cluster(current_cluster_address, &cluster_buffer[0], static_cast<int>(meta_data.cluster_size));
         }
             // Last iteration
         else {
             std::string cluster_buffer = std::string(buffer.begin() + static_cast<int>(i * meta_data.cluster_size), buffer.end());
-            write_to_cluster(current_cluster_address, cluster_buffer, static_cast<int>(file_size % meta_data.cluster_size));
+            write_to_cluster(current_cluster_address, &cluster_buffer[0], static_cast<int>(file_size % meta_data.cluster_size));
             break;
         }
 
@@ -1007,14 +1013,19 @@ bool PseudoFS::outcp(const std::vector<std::string> &args) {
     for (auto i = 0; i < number_of_iterations; i++) {
         // Read data from cluster
         if (i != number_of_iterations - 1) {
-            std::string buffer = read_from_cluster(current_cluster_address, static_cast<int>(meta_data.cluster_size));
-            destination_file.write(buffer.c_str(), static_cast<int>(meta_data.cluster_size));
+            char *buffer = new char[meta_data.cluster_size];
+            read_from_cluster(current_cluster_address, buffer, static_cast<int>(meta_data.cluster_size));
+            for (int j = 0; j < meta_data.cluster_size; j++)
+                destination_file.write(&buffer[j], sizeof(char));
+            delete[] buffer;
         }
             // Last iteration
         else {
-            std::string buffer = read_from_cluster(current_cluster_address,
-                                                   static_cast<int>(entry.size % meta_data.cluster_size));
-            destination_file.write(buffer.c_str(), static_cast<int>(entry.size % meta_data.cluster_size));
+            char *buffer = new char[entry.size % meta_data.cluster_size];
+            read_from_cluster(current_cluster_address, buffer, static_cast<int>(entry.size % meta_data.cluster_size));
+            for (int j = 0; j < entry.size % meta_data.cluster_size; j++)
+                destination_file.write(&buffer[j], sizeof(char));
+            delete[] buffer;
             break;
         }
 
@@ -1113,7 +1124,7 @@ bool PseudoFS::format(const std::vector<std::string> &args) {
     // Write the data (no data)
     EMPTY_CLUSTER = std::string(meta_data.cluster_size, '\0');
     for (uint32_t i = 0; i < meta_data.cluster_count; i++)
-        write_to_cluster(meta_data.data_start_address + i * meta_data.cluster_size, EMPTY_CLUSTER,
+        write_to_cluster(meta_data.data_start_address + i * meta_data.cluster_size, &EMPTY_CLUSTER[0],
                          static_cast<int>(meta_data.cluster_size));
 
     // Write the root directory to FAT table and data
@@ -1202,10 +1213,12 @@ bool PseudoFS::defrag(const std::vector<std::string> &args) {
 
     // Copy the data from the old clusters to the new ones
     for (int i = 0; i < number_of_needed_consecutive_clusters; i++) {
-        std::string data = read_from_cluster(meta_data.data_start_address + clusters[i] * meta_data.cluster_size,
-                                             static_cast<int>(meta_data.cluster_size));
+        char *data = new char[meta_data.cluster_size];
+        read_from_cluster(meta_data.data_start_address + clusters[i] * meta_data.cluster_size, data,
+                          static_cast<int>(meta_data.cluster_size));
         write_to_cluster(meta_data.data_start_address + new_clusters[i] * meta_data.cluster_size, data,
                          static_cast<int>(meta_data.cluster_size));
+        delete[] data;
     }
 
     // Update the FAT table
@@ -1216,7 +1229,7 @@ bool PseudoFS::defrag(const std::vector<std::string> &args) {
     // Free the old clusters
     for (int i = 0; i < number_of_needed_consecutive_clusters; i++) {
         write_to_fat(meta_data.fat_start_address + clusters[i] * sizeof(uint32_t), FAT_FREE);
-        write_to_cluster(meta_data.data_start_address + clusters[i] * meta_data.cluster_size, EMPTY_CLUSTER,
+        write_to_cluster(meta_data.data_start_address + clusters[i] * meta_data.cluster_size, &EMPTY_CLUSTER[0],
                          static_cast<int>(meta_data.cluster_size));
     }
 

@@ -148,20 +148,22 @@ private:
     uint32_t find_free_cluster();
 
     /**
-     * Redas the data from the cluster
+     * Reads the data from the cluster
      * @param cluster_address Address of the cluster in bytes
+     * @param buffer Buffer to be filled with data
      * @param size Size of the data to read in bytes
      * @return Data read from the cluster
      */
-    std::string read_from_cluster(uint32_t cluster_address, int size);
+    void read_from_cluster(uint32_t cluster_address, char *buffer, int size);
 
     /**
      * Writes the data to the cluster
      * @param cluster_address Address of the cluster in bytes
+     * @param buffer Buffer with data to be written
      * @param data Data to write to the cluster
      * @param size Size of the data in bytes
      */
-    void write_to_cluster(uint32_t cluster_address, const std::string &data, int size);
+    void write_to_cluster(uint32_t cluster_address, char *buffer, int size);
 
     /**
      * Reads the value from the FAT table
