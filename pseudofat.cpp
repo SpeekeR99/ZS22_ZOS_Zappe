@@ -930,13 +930,16 @@ bool PseudoFS::incp(const std::vector<std::string> &args) {
         // Write data to cluster
         if (i != number_of_iterations - 1) {
             std::string cluster_buffer = std::string(buffer.begin() + static_cast<int>(i * meta_data.cluster_size),
-                                                     buffer.begin() + static_cast<int>((i + 1) * meta_data.cluster_size));
+                                                     buffer.begin() +
+                                                     static_cast<int>((i + 1) * meta_data.cluster_size));
             write_to_cluster(current_cluster_address, &cluster_buffer[0], static_cast<int>(meta_data.cluster_size));
         }
             // Last iteration
         else {
-            std::string cluster_buffer = std::string(buffer.begin() + static_cast<int>(i * meta_data.cluster_size), buffer.end());
-            write_to_cluster(current_cluster_address, &cluster_buffer[0], static_cast<int>(file_size % meta_data.cluster_size));
+            std::string cluster_buffer = std::string(buffer.begin() + static_cast<int>(i * meta_data.cluster_size),
+                                                     buffer.end());
+            write_to_cluster(current_cluster_address, &cluster_buffer[0],
+                             static_cast<int>(file_size % meta_data.cluster_size));
             break;
         }
 
@@ -1081,10 +1084,11 @@ bool PseudoFS::format(const std::vector<std::string> &args) {
             "zapped99",
             disk_size,
             DEFAULT_CLUSTER_SIZE,
-            (disk_size - (sizeof(MetaData) + num_blocks * sizeof(uint32_t))) / DEFAULT_CLUSTER_SIZE,
+            static_cast<uint32_t>((disk_size - (sizeof(MetaData) + num_blocks * sizeof(uint32_t))) /
+                                  DEFAULT_CLUSTER_SIZE),
             sizeof(MetaData),
-            num_blocks * sizeof(uint32_t),
-            sizeof(MetaData) + num_blocks * sizeof(uint32_t)
+            static_cast<uint32_t>(num_blocks * sizeof(uint32_t)),
+            static_cast<uint32_t>(sizeof(MetaData) + num_blocks * sizeof(uint32_t))
     };
     // Create root directory
     auto root_dir_curr = DirectoryEntry{
